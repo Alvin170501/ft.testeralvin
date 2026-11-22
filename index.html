@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cari Jawaban Soal</title>
+  <title>Bank Soal & Cari Jawaban</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -15,11 +15,15 @@
       border-radius: 3px;
       font-weight: 600;
     }
+    .soal-card {
+      content-visibility: auto;
+      contain-intrinsic-size: 160px;
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
 
-  <!-- Header & Kolom Pencarian Utama -->
+  <!-- Header & Kolom Pencarian -->
   <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-30 shadow-lg shadow-black/20">
     <div class="max-w-3xl mx-auto px-4 pt-4 pb-3.5 space-y-3">
       <div class="flex items-center justify-between gap-2">
@@ -33,7 +37,7 @@
           </div>
         </div>
 
-        <!-- Indikator Status File (Klik untuk cek soal1 - soal16) -->
+        <!-- Indikator Status File & Duplikat -->
         <button
           onclick="toggleStatusModal(true)"
           id="dbBadge"
@@ -45,7 +49,7 @@
         </button>
       </div>
 
-      <!-- Input Pencarian + Tombol Tempel & Hapus -->
+      <!-- Input Pencarian -->
       <div class="relative flex items-center">
         <i class="fa-solid fa-search absolute left-4 text-slate-400 pointer-events-none"></i>
         <input
@@ -84,13 +88,11 @@
   <main class="flex-1 max-w-3xl w-full mx-auto px-4 py-5">
     <div id="resultMeta" class="hidden flex items-center justify-between text-xs text-slate-400 mb-3">
       <span id="resultCountText"></span>
-      <span class="text-slate-500">Diurutkan paling mirip</span>
+      <span class="text-slate-500">Tanpa duplikat &bull; Paling mirip</span>
     </div>
 
-    <!-- Container Kartu Soal & Jawaban -->
     <div id="resultsContainer" class="space-y-3.5"></div>
 
-    <!-- Tombol Muat Lebih Banyak -->
     <div id="loadMoreWrap" class="hidden mt-5 text-center">
       <button
         onclick="loadMore()"
@@ -121,11 +123,11 @@
 
       <div id="fileGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 text-xs"></div>
 
-      <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+      <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2 text-xs">
         <span class="text-slate-400" id="modalSummary"></span>
         <button
           onclick="reloadDatabase()"
-          class="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1.5"
+          class="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1.5 shrink-0"
         >
           <i class="fa-solid fa-rotate"></i> Muat Ulang
         </button>
@@ -146,7 +148,6 @@
     const TOTAL_FILES = 16;
     const FILE_NAMES = Array.from({ length: TOTAL_FILES }, (_, i) => `soal${i + 1}.xlsx`);
 
-    // Kata penghubung umum yang bobotnya lebih rendah agar pencocokan fokus pada kata kunci inti
     const STOPWORDS = new Set([
       "apa", "yang", "di", "ke", "dari", "pada", "adalah", "yaitu", "yakni",
       "berikut", "ini", "itu", "tersebut", "manakah", "sebutkan", "jelaskan",
@@ -158,7 +159,8 @@
     let bankSoal = [];
     let fileStatuses = [];
     let currentMatches = [];
-    let visibleLimit = 30;
+    let duplicateRemovedCount = 0;
+    let visibleLimit = 25;
     let debounceTimer = null;
 
     const searchInput = document.getElementById("searchInput");
@@ -170,7 +172,7 @@
     const loadMoreWrap = document.getElementById("loadMoreWrap");
 
     // =========================================================================
-    // 2. NORMALISASI TEKS & PRE-INDEXING UNTUK PENCARIAN CEPAT
+    // 2. NORMALISASI, DEDUPLIKASI & PRE-INDEXING CEPAT
     // =========================================================================
     function normalizeText(str) {
       return String(str ?? "")
@@ -178,6 +180,12 @@
         .replace(/[^a-z0-9\s]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
+    }
+
+    // Hapus nomor soal di awal (misal: "1. ", "12) ", "05 - ") untuk deteksi duplikat akurat
+    function getCanonicalDedupText(str) {
+      const noNum = String(str ?? "").replace(/^\s*\d+[\.\)\-\:]\s*/, "");
+      return normalizeText(noNum);
     }
 
     function getBigrams(str) {
@@ -189,29 +197,36 @@
       return set;
     }
 
-    function buildIndexItem(soal, jawaban, sumber) {
+    function buildIndexItem(soal, jawaban, sumber, dedupKey) {
       const normSoal = normalizeText(soal);
       const normJawab = normalizeText(jawaban);
       const tokens = normSoal.split(" ").filter(Boolean);
       const coreTokens = tokens.filter(t => t.length > 1 && !STOPWORDS.has(t));
 
+      // Pre-compute bigram tiap kata agar pencarian fuzzy tidak menghitung ulang
+      const tokenEntries = tokens.map(t => ({
+        word: t,
+        bigrams: t.length >= 3 ? getBigrams(t) : null
+      }));
+
       return {
+        dedupKey,
         soal,
         jawaban,
-        sumber,
+        sources: [sumber],
         normSoal,
         normJawab,
-        tokens,
+        tokenEntries,
         coreTokens: coreTokens.length > 0 ? coreTokens : tokens,
         bigrams: getBigrams(normSoal)
       };
     }
 
     // =========================================================================
-    // 3. PARSER EXCEL (soal1.xlsx - soal16.xlsx)
+    // 3. PARSER EXCEL & PENGHAPUS SOAL/JAWABAN GANDA
     // =========================================================================
     function parseWorkbook(wb, filename) {
-      const list = [];
+      const rawItems = [];
       for (const sheetName of wb.SheetNames) {
         const sheet = wb.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
@@ -224,7 +239,7 @@
           const col1 = String(row[1] ?? "").trim();
           if (!col0 || !col1) continue;
 
-          // Lewati header tabel jika baris 1 bertuliskan "Soal" / "Jawaban"
+          // Lewati baris header tabel
           if (
             i === 0 &&
             /^(no|nomor|soal|pertanyaan|question|tanya)$/i.test(col0) &&
@@ -233,7 +248,7 @@
             continue;
           }
 
-          // Dukung format 3 kolom (No | Soal | Jawaban) maupun 2 kolom (Soal | Jawaban)
+          // Dukung 3 kolom (No | Soal | Jawaban) atau 2 kolom (Soal | Jawaban)
           let soalText = col0;
           let jawabText = col1;
           if (/^\d+\.?$/.test(col0) && row[2] !== undefined && String(row[2]).trim() !== "") {
@@ -241,10 +256,10 @@
             jawabText = String(row[2]).trim();
           }
 
-          list.push(buildIndexItem(soalText, jawabText, filename));
+          rawItems.push({ soal: soalText, jawaban: jawabText, sumber: filename });
         }
       }
-      return list;
+      return rawItems;
     }
 
     async function loadDatabase() {
@@ -252,7 +267,7 @@
       const dbBadgeLabel = document.getElementById("dbBadgeLabel");
       const dbDot = document.getElementById("dbDot");
 
-      statusText.textContent = "Memuat soal1.xlsx - soal16.xlsx...";
+      statusText.textContent = "Memuat & menyaring duplikat...";
       dbDot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
 
       const v = Date.now();
@@ -264,28 +279,50 @@
             const buf = await res.arrayBuffer();
             const wb = XLSX.read(buf, { type: "array" });
             const items = parseWorkbook(wb, filename);
-            return { filename, ok: true, count: items.length, items };
+            return { filename, ok: true, rawCount: items.length, items };
           } catch {
-            return { filename, ok: false, count: 0, items: [] };
+            return { filename, ok: false, rawCount: 0, items: [] };
           }
         })
       );
 
-      bankSoal = [];
-      fileStatuses = results;
+      // Deduplikasi global di seluruh file soal1 - soal16
+      const uniqueMap = new Map();
+      let dupCount = 0;
       let activeFiles = 0;
+      fileStatuses = results;
 
       for (const r of results) {
-        if (r.ok && r.count > 0) {
+        if (r.ok && r.rawCount > 0) {
           activeFiles++;
-          bankSoal.push(...r.items);
+          for (const raw of r.items) {
+            const cSoal = getCanonicalDedupText(raw.soal);
+            const cJawab = normalizeText(raw.jawaban);
+            if (!cSoal || !cJawab) continue;
+
+            const dedupKey = `${cSoal}|||${cJawab}`;
+            const existing = uniqueMap.get(dedupKey);
+
+            if (existing) {
+              dupCount++;
+              if (!existing.sources.includes(raw.sumber)) {
+                existing.sources.push(raw.sumber);
+              }
+            } else {
+              uniqueMap.set(dedupKey, buildIndexItem(raw.soal, raw.jawaban, raw.sumber, dedupKey));
+            }
+          }
         }
       }
+
+      bankSoal = Array.from(uniqueMap.values());
+      duplicateRemovedCount = dupCount;
 
       if (activeFiles > 0) {
         dbDot.className = "w-2 h-2 rounded-full bg-emerald-400";
         dbBadgeLabel.textContent = `${activeFiles}/${TOTAL_FILES} File`;
-        statusText.textContent = `${bankSoal.length.toLocaleString("id-ID")} soal siap dicari`;
+        const dupInfo = dupCount > 0 ? ` (${dupCount.toLocaleString("id-ID")} ganda dihapus)` : "";
+        statusText.textContent = `${bankSoal.length.toLocaleString("id-ID")} soal unik${dupInfo}`;
       } else {
         dbDot.className = "w-2 h-2 rounded-full bg-rose-400";
         dbBadgeLabel.textContent = "0 File";
@@ -297,58 +334,67 @@
     }
 
     // =========================================================================
-    // 4. ALGORITMA PENCARIAN COCOK & MENDEKATI (HYBRID SIMILARITY)
+    // 4. ALGORITMA PENCARIAN CEPAT & AKURAT
     // =========================================================================
-    function wordSimilarity(a, b) {
-      if (a === b) return 1;
-      if (a.length < 3 || b.length < 3) return 0;
-      if (a.includes(b) || b.includes(a)) {
-        return Math.min(a.length, b.length) / Math.max(a.length, b.length);
+    function fastWordSimilarity(qWord, qBigrams, targetEntry) {
+      const tWord = targetEntry.word;
+      if (qWord === tWord) return 1;
+      if (qWord.length < 3 || tWord.length < 3) return 0;
+
+      // Filter cepat selisih panjang kata agar tidak buang CPU
+      const maxLen = Math.max(qWord.length, tWord.length);
+      const minLen = Math.min(qWord.length, tWord.length);
+      if (minLen / maxLen < 0.6) return 0;
+
+      if (qWord.includes(tWord) || tWord.includes(qWord)) {
+        return minLen / maxLen;
       }
 
-      // Bigram similarity untuk toleransi typo (misal: "protkol" vs "protokol")
-      const biA = getBigrams(a);
-      const biB = getBigrams(b);
-      if (biA.size === 0 || biB.size === 0) return 0;
-
+      if (!qBigrams || !targetEntry.bigrams) return 0;
       let overlap = 0;
-      for (const bg of biA) {
-        if (biB.has(bg)) overlap++;
+      for (const bg of qBigrams) {
+        if (targetEntry.bigrams.has(bg)) overlap++;
       }
-      return (2 * overlap) / (biA.size + biB.size);
+      return (2 * overlap) / (qBigrams.size + targetEntry.bigrams.size);
     }
 
-    function computeRelevance(queryNorm, qCoreTokens, qBigrams, item) {
-      // 1. Cek kecocokan frasa persis (Exact Substring)
+    function computeRelevance(queryNorm, preparedQueryTokens, qBigrams, item) {
+      // 1. Kecocokan frasa persis
       if (item.normSoal.includes(queryNorm)) {
         const lengthRatio = Math.min(1, queryNorm.length / Math.max(item.normSoal.length, 1));
-        const score = Math.round(88 + lengthRatio * 12); // 88 - 100%
+        const score = Math.round(88 + lengthRatio * 12);
         return { score, type: score >= 96 ? "exact" : "high" };
       }
 
-      // 2. Cek kecocokan kata-kata inti (mendukung soal panjang & typo)
+      // 2. Kecocokan kata-kata inti
       let matchedWeight = 0;
       let totalWeight = 0;
 
-      for (const qt of qCoreTokens) {
-        const weight = qt.length >= 5 ? 1.5 : 1.0;
-        totalWeight += weight;
-
+      for (const qt of preparedQueryTokens) {
+        totalWeight += qt.weight;
         let bestWordScore = 0;
-        for (const it of item.tokens) {
-          const sim = wordSimilarity(qt, it);
-          if (sim > bestWordScore) bestWordScore = sim;
-          if (bestWordScore === 1) break;
+
+        for (let i = 0; i < item.tokenEntries.length; i++) {
+          const sim = fastWordSimilarity(qt.word, qt.bigrams, item.tokenEntries[i]);
+          if (sim > bestWordScore) {
+            bestWordScore = sim;
+            if (bestWordScore === 1) break;
+          }
         }
 
         if (bestWordScore >= 0.65) {
-          matchedWeight += weight * bestWordScore;
+          matchedWeight += qt.weight * bestWordScore;
         }
       }
 
       const tokenScore = totalWeight > 0 ? (matchedWeight / totalWeight) : 0;
 
-      // 3. Cek kemiripan struktur karakter keseluruhan (Dice Coefficient)
+      // Lewati perhitungan bigram kalimat jika kemiripan kata terlalu rendah (hemat CPU)
+      if (tokenScore < 0.25 && queryNorm.length >= 6 && !item.normJawab.includes(queryNorm)) {
+        return null;
+      }
+
+      // 3. Kemiripan bigram keseluruhan kalimat
       let bigramOverlap = 0;
       if (qBigrams.size > 0 && item.bigrams.size > 0) {
         for (const bg of qBigrams) {
@@ -359,17 +405,16 @@
         ? (2 * bigramOverlap) / (qBigrams.size + item.bigrams.size)
         : 0;
 
-      // 4. Cek juga apakah kata kunci ada di kolom jawaban (bobot lebih ringan)
+      // 4. Bonus jika kata kunci ada di kolom jawaban
       let answerBonus = 0;
-      if (item.normJawab.includes(queryNorm) && queryNorm.length >= 4) {
+      if (queryNorm.length >= 4 && item.normJawab.includes(queryNorm)) {
         answerBonus = 0.25;
       }
 
-      // Gabungan skor akhir (0 - 95%)
       const combined = Math.min(0.95, tokenScore * 0.75 + diceScore * 0.25 + answerBonus);
       const percent = Math.round(combined * 100);
 
-      if (percent < 35) return null; // Abaikan yang terlalu jauh tidak relevan
+      if (percent < 36) return null;
 
       return {
         score: percent,
@@ -400,26 +445,38 @@
       const rawTokens = queryNorm.split(" ").filter(Boolean);
       const coreTokens = rawTokens.filter(t => t.length > 1 && !STOPWORDS.has(t));
       const effectiveTokens = coreTokens.length > 0 ? coreTokens : rawTokens;
+
+      // Pre-compute query tokens sekali per pencarian
+      const preparedQueryTokens = effectiveTokens.map(w => ({
+        word: w,
+        weight: w.length >= 5 ? 1.5 : 1.0,
+        bigrams: w.length >= 3 ? getBigrams(w) : null
+      }));
       const qBigrams = getBigrams(queryNorm);
 
       const matches = [];
-      for (const item of bankSoal) {
-        const res = computeRelevance(queryNorm, effectiveTokens, qBigrams, item);
+      const seenKeys = new Set();
+
+      for (let i = 0; i < bankSoal.length; i++) {
+        const item = bankSoal[i];
+        if (seenKeys.has(item.dedupKey)) continue;
+
+        const res = computeRelevance(queryNorm, preparedQueryTokens, qBigrams, item);
         if (res) {
+          seenKeys.add(item.dedupKey);
           matches.push({ item, score: res.score, type: res.type });
         }
       }
 
-      // Urutkan dari kemiripan tertinggi ke terendah
       matches.sort((a, b) => b.score - a.score);
 
       currentMatches = matches;
-      visibleLimit = 30;
+      visibleLimit = 25;
       renderMatches(effectiveTokens);
     }
 
     // =========================================================================
-    // 5. RENDER TAMPILAN HASIL & HIGHLIGHT
+    // 5. RENDER TAMPILAN HASIL
     // =========================================================================
     function escapeHtml(str) {
       return String(str ?? "")
@@ -441,6 +498,11 @@
       return safe.replace(regex, "<mark>$1</mark>");
     }
 
+    function formatSourceBadge(sources) {
+      if (sources.length === 1) return escapeHtml(sources[0]);
+      return `${escapeHtml(sources[0])} +${sources.length - 1} file`;
+    }
+
     function renderEmptyPrompt() {
       if (bankSoal.length === 0) {
         resultsContainer.innerHTML = `
@@ -448,7 +510,7 @@
             <i class="fa-solid fa-folder-open text-3xl text-amber-400"></i>
             <p class="text-sm font-semibold text-slate-200">File soal1.xlsx - soal16.xlsx belum ditemukan</p>
             <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-              Pastikan file Excel sudah di-upload ke folder utama repository GitHub dan halaman dibuka melalui link GitHub Pages.
+              Pastikan file Excel sudah di-upload ke folder utama repository GitHub dan dibuka melalui link GitHub Pages.
             </p>
           </div>
         `;
@@ -463,7 +525,7 @@
           <div class="space-y-1">
             <p class="text-sm sm:text-base font-semibold text-slate-200">Ketik atau tempel soal di kolom atas</p>
             <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-              Otomatis mencari jawaban yang <b>cocok persis</b> maupun <b>soal yang mendekati</b> dari <span class="text-slate-300 font-medium">soal1.xlsx</span> sampai <span class="text-slate-300 font-medium">soal16.xlsx</span>.
+              Siap mencari dari <b>${bankSoal.length.toLocaleString("id-ID")} soal unik</b> (soal ganda otomatis disembunyikan agar pencarian tetap cepat).
             </p>
           </div>
         </div>
@@ -472,7 +534,7 @@
 
     function renderMatches(highlightTokens) {
       resultMeta.classList.remove("hidden");
-      resultCountText.textContent = `Ditemukan ${currentMatches.length} hasil relevan`;
+      resultCountText.textContent = `Ditemukan ${currentMatches.length} hasil unik`;
 
       if (currentMatches.length === 0) {
         loadMoreWrap.classList.add("hidden");
@@ -500,12 +562,15 @@
         }
 
         return `
-          <article class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 sm:p-5 transition shadow-sm">
+          <article class="soal-card bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 sm:p-5 transition shadow-sm">
             <div class="flex items-center justify-between gap-2 flex-wrap">
               <div class="flex items-center gap-1.5">
                 ${badgeHtml}
-                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800 text-slate-400">
-                  ${escapeHtml(item.sumber)}
+                <span
+                  class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800 text-slate-400"
+                  title="${escapeHtml(item.sources.join(", "))}"
+                >
+                  ${formatSourceBadge(item.sources)}
                 </span>
               </div>
 
@@ -532,7 +597,7 @@
     }
 
     function loadMore() {
-      visibleLimit += 30;
+      visibleLimit += 25;
       const queryNorm = normalizeText(searchInput.value);
       const tokens = queryNorm.split(" ").filter(t => t.length > 1 && !STOPWORDS.has(t));
       renderMatches(tokens);
@@ -543,7 +608,7 @@
     // =========================================================================
     searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(runSearch, 100);
+      debounceTimer = setTimeout(runSearch, 120);
     });
 
     function clearSearch() {
@@ -578,16 +643,18 @@
     }
 
     function renderFileGrid(activeFiles) {
-      document.getElementById("modalSummary").textContent = `${activeFiles} dari ${TOTAL_FILES} file aktif`;
+      document.getElementById("modalSummary").textContent =
+        `${activeFiles}/${TOTAL_FILES} file • ${duplicateRemovedCount} duplikat disaring`;
+
       document.getElementById("fileGrid").innerHTML = fileStatuses.map(st => {
-        if (st.ok && st.count > 0) {
+        if (st.ok && st.rawCount > 0) {
           return `
             <div class="p-2 rounded-xl bg-emerald-950/40 border border-emerald-800/60">
               <div class="font-semibold text-emerald-300 flex items-center justify-between">
                 <span>${st.filename}</span>
                 <i class="fa-solid fa-check text-[10px]"></i>
               </div>
-              <div class="text-[11px] text-emerald-400/80 mt-0.5">${st.count} soal</div>
+              <div class="text-[11px] text-emerald-400/80 mt-0.5">${st.rawCount} baris</div>
             </div>
           `;
         }
