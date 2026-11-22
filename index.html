@@ -24,6 +24,10 @@
     };
   </script>
   <style>
+    /* Mencegah tidak sengaja pull-to-refresh saat mengusap layar ke bawah di HP */
+    html, body {
+      overscroll-behavior-y: contain;
+    }
     body {
       background-color: #070b14;
       background-image:
@@ -107,8 +111,22 @@
       <div id="loadingWarning" class="max-w-3xl mx-auto mb-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-4 py-3 flex items-center gap-3 text-xs text-amber-200 shadow-sm">
         <i class="fa-solid fa-circle-notch fa-spin text-amber-400 text-base shrink-0"></i>
         <div class="leading-relaxed">
-          <span class="font-bold text-amber-300">Mohon tunggu sebentar:</span> Sedang memuat seluruh data dari <span class="font-mono text-amber-100">soal1.xlsx</span> hingga <span class="font-mono text-amber-100">soal16.xlsx</span>. Harap tunggu sampai proses selesai sebelum melakukan pencarian.
+          <span class="font-bold text-amber-300">Mohon tunggu sebentar:</span> Sedang memproses seluruh data dari <span class="font-mono text-amber-100">soal1.xlsx</span> hingga <span class="font-mono text-amber-100">soal16.xlsx</span>. Jangan tutup atau muat ulang halaman sampai proses selesai.
         </div>
+      </div>
+
+      <!-- Banner Notifikasi Jika Ada Pembaruan Berkas di Server -->
+      <div id="updateBanner" class="hidden max-w-3xl mx-auto mb-3.5 bg-indigo-500/15 border border-indigo-500/35 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-indigo-200">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-cloud-arrow-down text-indigo-400"></i>
+          <span>Tersedia pembaruan data pada berkas soal di server.</span>
+        </div>
+        <button
+          onclick="forceSyncFromServer()"
+          class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shrink-0 transition"
+        >
+          Perbarui Sekarang
+        </button>
       </div>
 
       <!-- Main Search Box -->
@@ -213,7 +231,7 @@
           </div>
         </div>
         <button
-          onclick="reloadDatabase()"
+          onclick="forceSyncFromServer()"
           class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-200 text-xs font-semibold shrink-0 transition"
         >
           <i class="fa-solid fa-rotate mr-1"></i> Muat Ulang
@@ -265,8 +283,8 @@
   </footer>
 
   <!-- Modal Daftar Berkas -->
-  <div id="statusModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+  <div id="statusModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overscroll-contain">
+    <div class="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto overscroll-contain">
       <div class="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
         <div>
           <h2 class="font-bold text-base text-white flex items-center gap-2">
@@ -285,10 +303,11 @@
       <div class="mt-5 pt-3.5 border-t border-white/[0.08] flex items-center justify-between gap-2 text-xs">
         <span class="text-slate-400 font-medium" id="modalSummary"></span>
         <button
-          onclick="reloadDatabase()"
+          onclick="forceSyncFromServer()"
           class="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-semibold flex items-center gap-1.5 shrink-0 transition"
+          title="Unduh ulang seluruh berkas dari server"
         >
-          <i class="fa-solid fa-rotate"></i> Muat Ulang
+          <i class="fa-solid fa-rotate"></i> Sinkron Server
         </button>
       </div>
     </div>
@@ -302,10 +321,13 @@
 
   <script>
     // =========================================================================
-    // 1. KONFIGURASI BERKAS (soal1.xlsx sampai soal16.xlsx)
+    // 1. KONFIGURASI BERKAS & CACHE INDEXEDDB
     // =========================================================================
     const TOTAL_FILES = 16;
     const FILE_NAMES = Array.from({ length: TOTAL_FILES }, (_, i) => `soal${i + 1}.xlsx`);
+    const IDB_NAME = "BankSoalCache_Alvian";
+    const IDB_STORE = "indexStore";
+    const IDB_KEY = "soal1_16_index_v1";
 
     const STOPWORDS = new Set([
       "apa", "yang", "di", "ke", "dari", "pada", "adalah", "yaitu", "yakni",
@@ -316,6 +338,7 @@
     ]);
 
     let isDatabaseReady = false;
+    let isCurrentlyLoading = false;
     let bankSoal = [];
     let uniqueVocab = [];
     let fileStatuses = [];
@@ -329,6 +352,7 @@
     const clearBtn = document.getElementById("clearBtn");
     const pasteBtn = document.getElementById("pasteBtn");
     const loadingWarning = document.getElementById("loadingWarning");
+    const updateBanner = document.getElementById("updateBanner");
     const heroHeader = document.getElementById("heroHeader");
     const homeDashboard = document.getElementById("homeDashboard");
     const searchResultsSection = document.getElementById("searchResultsSection");
@@ -337,7 +361,78 @@
     const loadMoreWrap = document.getElementById("loadMoreWrap");
 
     // =========================================================================
-    // 2. NORMALISASI, DEDUPLIKASI & VOCABULARY INDEXING
+    // 2. PERLINDUNGAN ANTI-REFRESH TIDAK SENGAJA
+    // =========================================================================
+    window.addEventListener("beforeunload", (e) => {
+      // Tampilkan peringatan browser saat proses muat berjalan atau saat sudah ada data/pencarian aktif
+      if (isCurrentlyLoading || searchInput.value.trim().length > 0 || bankSoal.length > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
+
+    // =========================================================================
+    // 3. HELPER INDEXEDDB (MEMBUAT RELOAD JADI INSTAN < 0.2 DETIK)
+    // =========================================================================
+    function openCacheDB() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) return reject(new Error("IndexedDB tidak didukung"));
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) {
+            db.createObjectStore(IDB_STORE);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function readFromCache() {
+      try {
+        const db = await openCacheDB();
+        return await new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE, "readonly");
+          const store = tx.objectStore(IDB_STORE);
+          const req = store.get(IDB_KEY);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => reject(req.error);
+        });
+      } catch {
+        return null;
+      }
+    }
+
+    async function writeToCache(payload) {
+      try {
+        const db = await openCacheDB();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE, "readwrite");
+          const store = tx.objectStore(IDB_STORE);
+          const req = store.put(payload, IDB_KEY);
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+      } catch (err) {
+        console.warn("Gagal menyimpan cache lokal:", err);
+      }
+    }
+
+    async function clearCacheDB() {
+      try {
+        const db = await openCacheDB();
+        await new Promise((resolve) => {
+          const tx = db.transaction(IDB_STORE, "readwrite");
+          tx.objectStore(IDB_STORE).delete(IDB_KEY);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        });
+      } catch {}
+    }
+
+    // =========================================================================
+    // 4. NORMALISASI, DEDUPLIKASI & VOCABULARY INDEXING
     // =========================================================================
     function normalizeText(str) {
       return String(str ?? "")
@@ -381,7 +476,7 @@
     }
 
     // =========================================================================
-    // 3. PARSER EXCEL & PENGELOLAAN STATUS LOADING
+    // 5. PARSER EXCEL, CACHE LOADER & SINKRONISASI SERVER
     // =========================================================================
     function parseWorkbook(wb, filename) {
       const rawItems = [];
@@ -419,6 +514,7 @@
     }
 
     function setLoadingState(loading) {
+      isCurrentlyLoading = loading;
       isDatabaseReady = !loading;
       searchInput.disabled = loading;
       pasteBtn.disabled = loading;
@@ -442,12 +538,84 @@
       }
     }
 
-    async function loadDatabase() {
+    function applyDatabaseUI(activeFiles) {
       const dbBadgeLabel = document.getElementById("dbBadgeLabel");
       const dbDot = document.getElementById("dbDot");
       const dbPing = document.getElementById("dbPing");
 
+      document.getElementById("statUnique").textContent = bankSoal.length.toLocaleString("id-ID");
+      document.getElementById("statFiles").textContent = `${activeFiles} / ${TOTAL_FILES}`;
+      document.getElementById("statDupes").textContent = duplicateRemovedCount.toLocaleString("id-ID");
+
+      if (activeFiles > 0) {
+        dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-emerald-400";
+        dbPing.className = "hidden";
+        dbBadgeLabel.textContent = `${activeFiles}/${TOTAL_FILES} Berkas`;
+        document.getElementById("emptyDbAlert").classList.add("hidden");
+      } else {
+        dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-rose-400";
+        dbPing.className = "hidden";
+        dbBadgeLabel.textContent = "0 Berkas";
+        document.getElementById("emptyDbAlert").classList.remove("hidden");
+      }
+
+      renderFileGrid(activeFiles);
+    }
+
+    async function checkServerSignature() {
+      let hasAnyOk = false;
+      const sigs = await Promise.all(
+        FILE_NAMES.map(async (filename) => {
+          try {
+            const res = await fetch(`./${filename}`, { method: "HEAD", cache: "no-store" });
+            if (!res.ok) return `${filename}:404`;
+            hasAnyOk = true;
+            const lm = res.headers.get("last-modified") || "";
+            const cl = res.headers.get("content-length") || "";
+            const etag = res.headers.get("etag") || "";
+            return `${filename}:${etag}:${lm}:${cl}`;
+          } catch {
+            return `${filename}:err`;
+          }
+        })
+      );
+      return hasAnyOk ? sigs.join("|") : null;
+    }
+
+    async function loadDatabase(forceFresh = false) {
+      const dbBadgeLabel = document.getElementById("dbBadgeLabel");
+      const dbDot = document.getElementById("dbDot");
+      const dbPing = document.getElementById("dbPing");
+
+      // 1. Cek Cache Lokal terlebih dahulu agar refresh berjalan instan (< 0.2 detik)
+      if (!forceFresh) {
+        const cached = await readFromCache();
+        if (cached && Array.isArray(cached.bankSoal) && cached.bankSoal.length > 0) {
+          bankSoal = cached.bankSoal.map(item => ({
+            ...item,
+            bigrams: new Set(item.bigrams)
+          }));
+          uniqueVocab = cached.uniqueVocab || [];
+          fileStatuses = cached.fileStatuses || [];
+          duplicateRemovedCount = cached.duplicateRemovedCount || 0;
+
+          applyDatabaseUI(cached.activeFiles || 0);
+          setLoadingState(false);
+          runSearch();
+
+          // Cek pembaruan berkas di server secara diam-diam di latar belakang
+          checkServerSignature().then(latestSig => {
+            if (latestSig && cached.signature && latestSig !== cached.signature) {
+              updateBanner.classList.remove("hidden");
+            }
+          });
+          return;
+        }
+      }
+
+      // 2. Unduh & Proses dari Server GitHub
       setLoadingState(true);
+      updateBanner.classList.add("hidden");
       dbBadgeLabel.textContent = "Memuat...";
       dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-amber-400";
       dbPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
@@ -459,12 +627,21 @@
             try {
               const res = await fetch(`./${filename}?v=${v}`);
               if (!res.ok) throw new Error("Not found");
+              const lm = res.headers.get("last-modified") || "";
+              const cl = res.headers.get("content-length") || "";
+              const etag = res.headers.get("etag") || "";
               const buf = await res.arrayBuffer();
               const wb = XLSX.read(buf, { type: "array" });
               const items = parseWorkbook(wb, filename);
-              return { filename, ok: true, rawCount: items.length, items };
+              return {
+                filename,
+                ok: true,
+                rawCount: items.length,
+                items,
+                sig: `${filename}:${etag}:${lm}:${cl}`
+              };
             } catch {
-              return { filename, ok: false, rawCount: 0, items: [] };
+              return { filename, ok: false, rawCount: 0, items: [], sig: `${filename}:404` };
             }
           })
         );
@@ -473,7 +650,7 @@
         const vocabSet = new Set();
         let dupCount = 0;
         let activeFiles = 0;
-        fileStatuses = results;
+        fileStatuses = results.map(({ filename, ok, rawCount }) => ({ filename, ok, rawCount }));
 
         for (const r of results) {
           if (r.ok && r.rawCount > 0) {
@@ -506,31 +683,38 @@
         uniqueVocab = Array.from(vocabSet);
         duplicateRemovedCount = dupCount;
 
-        document.getElementById("statUnique").textContent = bankSoal.length.toLocaleString("id-ID");
-        document.getElementById("statFiles").textContent = `${activeFiles} / ${TOTAL_FILES}`;
-        document.getElementById("statDupes").textContent = dupCount.toLocaleString("id-ID");
+        applyDatabaseUI(activeFiles);
 
-        if (activeFiles > 0) {
-          dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-emerald-400";
-          dbPing.className = "hidden";
-          dbBadgeLabel.textContent = `${activeFiles}/${TOTAL_FILES} Berkas`;
-          document.getElementById("emptyDbAlert").classList.add("hidden");
-        } else {
-          dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-rose-400";
-          dbPing.className = "hidden";
-          dbBadgeLabel.textContent = "0 Berkas";
-          document.getElementById("emptyDbAlert").classList.remove("hidden");
+        // Simpan ke IndexedDB agar jika ter-refresh tidak perlu menunggu lagi
+        if (bankSoal.length > 0) {
+          const serializableBank = bankSoal.map(item => ({
+            ...item,
+            bigrams: Array.from(item.bigrams)
+          }));
+          await writeToCache({
+            bankSoal: serializableBank,
+            uniqueVocab,
+            fileStatuses,
+            duplicateRemovedCount,
+            activeFiles,
+            signature: results.map(r => r.sig).join("|")
+          });
         }
-
-        renderFileGrid(activeFiles);
       } finally {
         setLoadingState(false);
         runSearch();
       }
     }
 
+    async function forceSyncFromServer() {
+      toggleStatusModal(false);
+      await clearCacheDB();
+      await loadDatabase(true);
+      showToast("Seluruh berkas soal berhasil diperbarui.", "success");
+    }
+
     // =========================================================================
-    // 4. ALGORITMA FUZZY & EDIT DISTANCE (MENDUKUNG TYPO KATA PENDEK & PANJANG)
+    // 6. ALGORITMA FUZZY & EDIT DISTANCE
     // =========================================================================
     function levenshteinDistance(a, b, maxDist) {
       const lenA = a.length;
@@ -573,15 +757,9 @@
       const vLen = vWord.length;
       if (qLen < 2 || vLen < 2) return 0;
 
-      // Pencocokan awalan / potongan kata
-      if (qLen >= 3 && vWord.startsWith(qWord)) {
-        return 0.88;
-      }
-      if (qLen >= 4 && vWord.includes(qWord)) {
-        return 0.84;
-      }
+      if (qLen >= 3 && vWord.startsWith(qWord)) return 0.88;
+      if (qLen >= 4 && vWord.includes(qWord)) return 0.84;
 
-      // Toleransi typo berdasarkan jumlah perubahan huruf (Edit Distance)
       if (qLen <= 4) {
         if (Math.abs(qLen - vLen) > 1) return 0;
         const dist = levenshteinDistance(qWord, vWord, 1);
@@ -596,7 +774,6 @@
         return 0;
       }
 
-      // Kata panjang >= 7 huruf
       if (Math.abs(qLen - vLen) > 2) return 0;
       const dist = levenshteinDistance(qWord, vWord, 2);
       if (dist === 1) return 0.90;
@@ -629,19 +806,16 @@
     }
 
     function computeRelevance(queryNorm, queryCompact, tokenPlans, qBigrams, item) {
-      // 1. Cocok persis secara frasa
       if (item.normSoal.includes(queryNorm)) {
         const lengthRatio = Math.min(1, queryNorm.length / Math.max(item.normSoal.length, 1));
         const score = Math.round(90 + lengthRatio * 10);
         return { score, type: score >= 96 ? "exact" : "high" };
       }
 
-      // 2. Cocok jika spasi tidak sengaja terhapus
       if (queryCompact.length >= 5 && item.compactSoal.includes(queryCompact)) {
         return { score: 86, type: "high" };
       }
 
-      // 3. Skor kecocokan tiap kata (termasuk kata yang typo)
       let matchedWeight = 0;
       let totalWeight = 0;
       let strongTokenHits = 0;
@@ -667,7 +841,6 @@
 
       const tokenScore = totalWeight > 0 ? (matchedWeight / totalWeight) : 0;
 
-      // 4. Kemiripan struktur karakter (Bigram Dice)
       let bigramOverlap = 0;
       if (qBigrams.size > 0 && item.bigrams.size > 0) {
         for (const bg of qBigrams) {
@@ -678,7 +851,6 @@
         ? (2 * bigramOverlap) / (qBigrams.size + item.bigrams.size)
         : 0;
 
-      // 5. Cek kecocokan di kolom jawaban
       let answerBonus = 0;
       if (queryNorm.length >= 4 && item.normJawab.includes(queryNorm)) {
         answerBonus = 0.28;
@@ -753,7 +925,7 @@
     }
 
     // =========================================================================
-    // 5. RENDER HASIL PENCARIAN
+    // 7. RENDER HASIL PENCARIAN
     // =========================================================================
     function escapeHtml(str) {
       return String(str ?? "")
@@ -851,7 +1023,7 @@
     }
 
     // =========================================================================
-    // 6. EVENT HANDLERS & SHORTCUTS
+    // 8. EVENT HANDLERS & SHORTCUTS
     // =========================================================================
     searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
@@ -929,12 +1101,6 @@
           </div>
         `;
       }).join("");
-    }
-
-    function reloadDatabase() {
-      toggleStatusModal(false);
-      loadDatabase();
-      showToast("Memuat ulang berkas soal1 – soal16...", "warning");
     }
 
     let toastTimer;
