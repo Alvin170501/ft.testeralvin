@@ -81,7 +81,7 @@
   <!-- Sticky Search Section -->
   <section class="sticky top-16 z-20 bg-[#070b14]/85 backdrop-blur-xl border-b border-white/[0.05] transition-all">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4">
-      <!-- Hero Title & Profil Pembuat (Otomatis sembunyi saat pencarian dimulai) -->
+      <!-- Hero Title & Profil Pembuat -->
       <div id="heroHeader" class="text-center max-w-2xl mx-auto pt-3 pb-6 space-y-3">
         <a
           href="https://www.instagram.com/alviannnnm/"
@@ -163,7 +163,6 @@
     <div id="homeDashboard" class="space-y-6">
       <!-- Stat Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        <!-- Card 1: Total Soal -->
         <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
           <div>
             <p class="text-xs font-medium text-slate-400">Total Soal Tersedia</p>
@@ -177,7 +176,6 @@
           </div>
         </div>
 
-        <!-- Card 2: Berkas Excel -->
         <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
           <div>
             <p class="text-xs font-medium text-slate-400">Berkas Soal Aktif</p>
@@ -189,7 +187,6 @@
           </div>
         </div>
 
-        <!-- Card 3: Soal Ganda -->
         <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
           <div>
             <p class="text-xs font-medium text-slate-400">Soal Ganda Disaring</p>
@@ -202,7 +199,7 @@
         </div>
       </div>
 
-      <!-- Alert jika berkas tidak ditemukan setelah selesai memuat -->
+      <!-- Alert jika berkas tidak ditemukan -->
       <div id="emptyDbAlert" class="hidden bg-rose-950/30 border border-rose-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div class="flex items-start gap-3.5">
           <div class="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
@@ -223,7 +220,7 @@
         </button>
       </div>
 
-      <!-- Panduan Penggunaan Formal & Natural -->
+      <!-- Panduan Penggunaan -->
       <div class="bg-slate-900/50 border border-white/[0.06] rounded-2xl p-5 sm:p-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -253,9 +250,9 @@
             <div class="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center text-xs mb-2">
               <i class="fa-solid fa-wand-magic-sparkles"></i>
             </div>
-            <h3 class="text-sm font-semibold text-slate-200">Pencocokan Soal Mendekati</h3>
+            <h3 class="text-sm font-semibold text-slate-200">Toleransi Salah Ketik</h3>
             <p class="text-xs text-slate-400 leading-relaxed">
-              Apabila susunan kalimat soal sedikit berbeda atau terdapat kesalahan ketik ringan, soal yang paling mendekati tetap ditampilkan di urutan teratas.
+              Apabila terdapat salah ketik ringan atau susunan kalimat yang sedikit berbeda, soal yang paling mendekati tetap ditampilkan di urutan teratas.
             </p>
           </div>
 
@@ -273,7 +270,7 @@
     </div>
 
     <!-- =====================================================================
-         SEARCH RESULTS VIEW (Tampil saat user mengetik pencarian)
+         SEARCH RESULTS VIEW
          ===================================================================== -->
     <div id="searchResultsSection" class="hidden">
       <div class="flex items-center justify-between text-xs text-slate-400 mb-3.5 px-1">
@@ -297,7 +294,7 @@
 
   </main>
 
-  <!-- Footer dengan Identitas Pembuat & Instagram -->
+  <!-- Footer -->
   <footer class="border-t border-white/[0.06] bg-slate-950/60 py-5 mt-8">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-slate-500">
       <div>
@@ -315,7 +312,7 @@
     </div>
   </footer>
 
-  <!-- Modal Daftar Berkas soal1 - soal16 -->
+  <!-- Modal Daftar Berkas -->
   <div id="statusModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
@@ -368,8 +365,10 @@
 
     let isDatabaseReady = false;
     let bankSoal = [];
+    let uniqueVocab = [];
     let fileStatuses = [];
     let currentMatches = [];
+    let currentHighlightWords = [];
     let duplicateRemovedCount = 0;
     let visibleLimit = 25;
     let debounceTimer = null;
@@ -386,7 +385,7 @@
     const loadMoreWrap = document.getElementById("loadMoreWrap");
 
     // =========================================================================
-    // 2. NORMALISASI, DEDUPLIKASI IDENTIK & PRE-INDEXING
+    // 2. NORMALISASI, DEDUPLIKASI & VOCABULARY INDEXING
     // =========================================================================
     function normalizeText(str) {
       return String(str ?? "")
@@ -414,12 +413,7 @@
       const normSoal = normalizeText(soal);
       const normJawab = normalizeText(jawaban);
       const tokens = normSoal.split(" ").filter(Boolean);
-      const coreTokens = tokens.filter(t => t.length > 1 && !STOPWORDS.has(t));
-
-      const tokenEntries = tokens.map(t => ({
-        word: t,
-        bigrams: t.length >= 3 ? getBigrams(t) : null
-      }));
+      const uniqueTokens = [...new Set(tokens)];
 
       return {
         dedupKey,
@@ -427,9 +421,9 @@
         jawaban,
         sources: [sumber],
         normSoal,
+        compactSoal: normSoal.replace(/\s+/g, ""),
         normJawab,
-        tokenEntries,
-        coreTokens: coreTokens.length > 0 ? coreTokens : tokens,
+        uniqueTokens,
         bigrams: getBigrams(normSoal)
       };
     }
@@ -524,6 +518,7 @@
         );
 
         const uniqueMap = new Map();
+        const vocabSet = new Set();
         let dupCount = 0;
         let activeFiles = 0;
         fileStatuses = results;
@@ -545,13 +540,18 @@
                   existing.sources.push(raw.sumber);
                 }
               } else {
-                uniqueMap.set(dedupKey, buildIndexItem(raw.soal, raw.jawaban, raw.sumber, dedupKey));
+                const indexed = buildIndexItem(raw.soal, raw.jawaban, raw.sumber, dedupKey);
+                uniqueMap.set(dedupKey, indexed);
+                for (const tok of indexed.uniqueTokens) {
+                  if (tok.length >= 2) vocabSet.add(tok);
+                }
               }
             }
           }
         }
 
         bankSoal = Array.from(uniqueMap.values());
+        uniqueVocab = Array.from(vocabSet);
         duplicateRemovedCount = dupCount;
 
         document.getElementById("statUnique").textContent = bankSoal.length.toLocaleString("id-ID");
@@ -578,62 +578,145 @@
     }
 
     // =========================================================================
-    // 4. ALGORITMA PENCARIAN KEMIRIPAN CEPAT
+    // 4. ALGORITMA FUZZY & EDIT DISTANCE (MENDUKUNG TYPO KATA PENDEK & PANJANG)
     // =========================================================================
-    function fastWordSimilarity(qWord, qBigrams, targetEntry) {
-      const tWord = targetEntry.word;
-      if (qWord === tWord) return 1;
-      if (qWord.length < 3 || tWord.length < 3) return 0;
+    function levenshteinDistance(a, b, maxDist) {
+      const lenA = a.length;
+      const lenB = b.length;
+      if (Math.abs(lenA - lenB) > maxDist) return maxDist + 1;
+      if (lenA === 0) return lenB;
+      if (lenB === 0) return lenA;
 
-      const maxLen = Math.max(qWord.length, tWord.length);
-      const minLen = Math.min(qWord.length, tWord.length);
-      if (minLen / maxLen < 0.6) return 0;
+      let prev = new Array(lenB + 1);
+      let curr = new Array(lenB + 1);
 
-      if (qWord.includes(tWord) || tWord.includes(qWord)) {
-        return minLen / maxLen;
+      for (let j = 0; j <= lenB; j++) prev[j] = j;
+
+      for (let i = 1; i <= lenA; i++) {
+        curr[0] = i;
+        let minInRow = curr[0];
+        const ca = a.charCodeAt(i - 1);
+
+        for (let j = 1; j <= lenB; j++) {
+          const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+          const val = Math.min(
+            prev[j] + 1,
+            curr[j - 1] + 1,
+            prev[j - 1] + cost
+          );
+          curr[j] = val;
+          if (val < minInRow) minInRow = val;
+        }
+
+        if (minInRow > maxDist) return maxDist + 1;
+        [prev, curr] = [curr, prev];
       }
 
-      if (!qBigrams || !targetEntry.bigrams) return 0;
-      let overlap = 0;
-      for (const bg of qBigrams) {
-        if (targetEntry.bigrams.has(bg)) overlap++;
-      }
-      return (2 * overlap) / (qBigrams.size + targetEntry.bigrams.size);
+      return prev[lenB];
     }
 
-    function computeRelevance(queryNorm, preparedQueryTokens, qBigrams, item) {
-      if (item.normSoal.includes(queryNorm)) {
-        const lengthRatio = Math.min(1, queryNorm.length / Math.max(item.normSoal.length, 1));
-        const score = Math.round(88 + lengthRatio * 12);
-        return { score, type: score >= 96 ? "exact" : "high" };
+    function computeWordSimilarity(qWord, vWord) {
+      if (qWord === vWord) return 1.0;
+      const qLen = qWord.length;
+      const vLen = vWord.length;
+      if (qLen < 2 || vLen < 2) return 0;
+
+      // Pencocokan awalan / potongan kata (misal: "prot" -> "protokol")
+      if (qLen >= 3 && vWord.startsWith(qWord)) {
+        return 0.88;
+      }
+      if (qLen >= 4 && vWord.includes(qWord)) {
+        return 0.84;
       }
 
-      let matchedWeight = 0;
-      let totalWeight = 0;
+      // Toleransi typo berdasarkan jumlah perubahan huruf (Edit Distance)
+      if (qLen <= 4) {
+        if (Math.abs(qLen - vLen) > 1) return 0;
+        const dist = levenshteinDistance(qWord, vWord, 1);
+        return dist === 1 ? 0.78 : 0; // Contoh: "spa" -> "apa", "yag" -> "yang"
+      }
 
-      for (const qt of preparedQueryTokens) {
-        totalWeight += qt.weight;
-        let bestWordScore = 0;
+      if (qLen <= 6) {
+        if (Math.abs(qLen - vLen) > 2) return 0;
+        const dist = levenshteinDistance(qWord, vWord, 2);
+        if (dist === 1) return 0.86;
+        if (dist === 2) return 0.68;
+        return 0;
+      }
 
-        for (let i = 0; i < item.tokenEntries.length; i++) {
-          const sim = fastWordSimilarity(qt.word, qt.bigrams, item.tokenEntries[i]);
-          if (sim > bestWordScore) {
-            bestWordScore = sim;
-            if (bestWordScore === 1) break;
+      // Kata panjang >= 7 huruf
+      if (Math.abs(qLen - vLen) > 2) return 0;
+      const dist = levenshteinDistance(qWord, vWord, 2);
+      if (dist === 1) return 0.90;
+      if (dist === 2) return 0.76;
+      return 0;
+    }
+
+    // Bangun peta kemiripan kata sekali per pencarian (sangat cepat!)
+    function buildQuerySimMaps(queryTokens, highlightSet) {
+      return queryTokens.map(qWord => {
+        const isStop = STOPWORDS.has(qWord);
+        const weight = isStop ? 0.7 : (qWord.length >= 5 ? 1.6 : 1.1);
+        const simMap = new Map();
+
+        simMap.set(qWord, 1.0);
+        if (qWord.length >= 2) highlightSet.add(qWord);
+
+        for (let i = 0; i < uniqueVocab.length; i++) {
+          const vWord = uniqueVocab[i];
+          const sim = computeWordSimilarity(qWord, vWord);
+          if (sim >= 0.68) {
+            simMap.set(vWord, sim);
+            if (sim >= 0.75 && vWord.length >= 2) {
+              highlightSet.add(vWord);
+            }
           }
         }
 
-        if (bestWordScore >= 0.65) {
-          matchedWeight += qt.weight * bestWordScore;
+        return { qWord, weight, simMap };
+      });
+    }
+
+    function computeRelevance(queryNorm, queryCompact, tokenPlans, qBigrams, item) {
+      // 1. Cocok persis secara frasa
+      if (item.normSoal.includes(queryNorm)) {
+        const lengthRatio = Math.min(1, queryNorm.length / Math.max(item.normSoal.length, 1));
+        const score = Math.round(90 + lengthRatio * 10);
+        return { score, type: score >= 96 ? "exact" : "high" };
+      }
+
+      // 2. Cocok jika spasi tidak sengaja terhapus (misal: "apayang")
+      if (queryCompact.length >= 5 && item.compactSoal.includes(queryCompact)) {
+        return { score: 86, type: "high" };
+      }
+
+      // 3. Skor kecocokan tiap kata (termasuk kata yang typo)
+      let matchedWeight = 0;
+      let totalWeight = 0;
+      let strongTokenHits = 0;
+
+      for (let p = 0; p < tokenPlans.length; p++) {
+        const plan = tokenPlans[p];
+        totalWeight += plan.weight;
+
+        let bestSim = 0;
+        for (let t = 0; t < item.uniqueTokens.length; t++) {
+          const s = plan.simMap.get(item.uniqueTokens[t]);
+          if (s && s > bestSim) {
+            bestSim = s;
+            if (bestSim === 1.0) break;
+          }
+        }
+
+        if (bestSim >= 0.68) {
+          matchedWeight += plan.weight * bestSim;
+          strongTokenHits++;
         }
       }
 
       const tokenScore = totalWeight > 0 ? (matchedWeight / totalWeight) : 0;
 
-      if (tokenScore < 0.25 && queryNorm.length >= 6 && !item.normJawab.includes(queryNorm)) {
-        return null;
-      }
-
+      // 4. Kemiripan struktur karakter (Bigram Dice)
       let bigramOverlap = 0;
       if (qBigrams.size > 0 && item.bigrams.size > 0) {
         for (const bg of qBigrams) {
@@ -644,19 +727,23 @@
         ? (2 * bigramOverlap) / (qBigrams.size + item.bigrams.size)
         : 0;
 
+      // 5. Cek kecocokan di kolom jawaban
       let answerBonus = 0;
       if (queryNorm.length >= 4 && item.normJawab.includes(queryNorm)) {
-        answerBonus = 0.25;
+        answerBonus = 0.28;
       }
 
-      const combined = Math.min(0.95, tokenScore * 0.75 + diceScore * 0.25 + answerBonus);
+      const combined = Math.min(0.95, tokenScore * 0.78 + diceScore * 0.22 + answerBonus);
       const percent = Math.round(combined * 100);
 
-      if (percent < 36) return null;
+      // Tampilkan jika skor >= 30% atau minimal ada kata kunci yang cocok kuat
+      if (percent < 30 && !(strongTokenHits >= 1 && percent >= 22)) {
+        return null;
+      }
 
       return {
-        score: percent,
-        type: percent >= 75 ? "high" : "near"
+        score: Math.max(percent, 25),
+        type: percent >= 76 ? "high" : "near"
       };
     }
 
@@ -681,15 +768,17 @@
       const queryNorm = normalizeText(raw);
       if (!queryNorm) return;
 
+      const queryCompact = queryNorm.replace(/\s+/g, "");
       const rawTokens = queryNorm.split(" ").filter(Boolean);
-      const coreTokens = rawTokens.filter(t => t.length > 1 && !STOPWORDS.has(t));
-      const effectiveTokens = coreTokens.length > 0 ? coreTokens : rawTokens;
 
-      const preparedQueryTokens = effectiveTokens.map(w => ({
-        word: w,
-        weight: w.length >= 5 ? 1.5 : 1.0,
-        bigrams: w.length >= 3 ? getBigrams(w) : null
-      }));
+      // Jika query panjang (> 3 kata), prioritaskan kata inti; jika pendek (<= 3 kata), sertakan semua kata
+      const coreTokens = rawTokens.filter(t => t.length > 1 && !STOPWORDS.has(t));
+      const effectiveTokens = (rawTokens.length > 3 && coreTokens.length >= 2)
+        ? coreTokens
+        : rawTokens;
+
+      const highlightSet = new Set();
+      const tokenPlans = buildQuerySimMaps(effectiveTokens, highlightSet);
       const qBigrams = getBigrams(queryNorm);
 
       const matches = [];
@@ -699,7 +788,7 @@
         const item = bankSoal[i];
         if (seenKeys.has(item.dedupKey)) continue;
 
-        const res = computeRelevance(queryNorm, preparedQueryTokens, qBigrams, item);
+        const res = computeRelevance(queryNorm, queryCompact, tokenPlans, qBigrams, item);
         if (res) {
           seenKeys.add(item.dedupKey);
           matches.push({ item, score: res.score, type: res.type });
@@ -709,8 +798,9 @@
       matches.sort((a, b) => b.score - a.score);
 
       currentMatches = matches;
+      currentHighlightWords = Array.from(highlightSet);
       visibleLimit = 25;
-      renderMatches(effectiveTokens);
+      renderMatches();
     }
 
     // =========================================================================
@@ -741,7 +831,7 @@
       return `${escapeHtml(sources[0])} +${sources.length - 1}`;
     }
 
-    function renderMatches(highlightTokens) {
+    function renderMatches() {
       resultCountText.textContent = `Ditemukan ${currentMatches.length} hasil yang relevan`;
 
       if (currentMatches.length === 0) {
@@ -793,13 +883,13 @@
               </button>
             </div>
 
-            <p class="mt-3 text-sm sm:text-base text-slate-200 leading-relaxed whitespace-pre-line">${highlightWords(item.soal, highlightTokens)}</p>
+            <p class="mt-3 text-sm sm:text-base text-slate-200 leading-relaxed whitespace-pre-line">${highlightWords(item.soal, currentHighlightWords)}</p>
 
             <div class="mt-4 bg-emerald-950/30 px-4 py-3 rounded-xl border border-emerald-500/25">
               <div class="text-[11px] uppercase tracking-wider font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
                 <i class="fa-solid fa-circle-check"></i> Jawaban:
               </div>
-              <p class="text-sm sm:text-base font-semibold text-emerald-100 leading-relaxed whitespace-pre-line">${highlightWords(item.jawaban, highlightTokens)}</p>
+              <p class="text-sm sm:text-base font-semibold text-emerald-100 leading-relaxed whitespace-pre-line">${highlightWords(item.jawaban, currentHighlightWords)}</p>
             </div>
           </article>
         `;
@@ -808,9 +898,7 @@
 
     function loadMore() {
       visibleLimit += 25;
-      const queryNorm = normalizeText(searchInput.value);
-      const tokens = queryNorm.split(" ").filter(t => t.length > 1 && !STOPWORDS.has(t));
-      renderMatches(tokens);
+      renderMatches();
     }
 
     // =========================================================================
@@ -818,7 +906,7 @@
     // =========================================================================
     searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(runSearch, 110);
+      debounceTimer = setTimeout(runSearch, 120);
     });
 
     document.addEventListener("keydown", (e) => {
