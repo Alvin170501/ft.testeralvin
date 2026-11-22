@@ -219,54 +219,6 @@
           <i class="fa-solid fa-rotate mr-1"></i> Muat Ulang
         </button>
       </div>
-
-      <!-- Panduan Penggunaan -->
-      <div class="bg-slate-900/50 border border-white/[0.06] rounded-2xl p-5 sm:p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-            <i class="fa-solid fa-circle-info text-indigo-400"></i>
-            Panduan Pencarian
-          </h2>
-          <button
-            onclick="toggleStatusModal(true)"
-            class="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition"
-          >
-            Lihat Rincian Berkas &rarr;
-          </button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="p-4 rounded-xl bg-slate-950/60 border border-white/[0.05] space-y-1.5">
-            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs mb-2">
-              <i class="fa-solid fa-key"></i>
-            </div>
-            <h3 class="text-sm font-semibold text-slate-200">Gunakan Kata Kunci Inti</h3>
-            <p class="text-xs text-slate-400 leading-relaxed">
-              Anda tidak perlu mengetik kalimat soal secara penuh. Cukup masukkan 2 hingga 3 kata kunci utama untuk menemukan jawaban yang dicari.
-            </p>
-          </div>
-
-          <div class="p-4 rounded-xl bg-slate-950/60 border border-white/[0.05] space-y-1.5">
-            <div class="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center text-xs mb-2">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>
-            </div>
-            <h3 class="text-sm font-semibold text-slate-200">Toleransi Salah Ketik</h3>
-            <p class="text-xs text-slate-400 leading-relaxed">
-              Apabila terdapat salah ketik ringan atau susunan kalimat yang sedikit berbeda, soal yang paling mendekati tetap ditampilkan di urutan teratas.
-            </p>
-          </div>
-
-          <div class="p-4 rounded-xl bg-slate-950/60 border border-white/[0.05] space-y-1.5">
-            <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs mb-2">
-              <i class="fa-regular fa-copy"></i>
-            </div>
-            <h3 class="text-sm font-semibold text-slate-200">Tempel dan Salin Cepat</h3>
-            <p class="text-xs text-slate-400 leading-relaxed">
-              Gunakan tombol <b>Tempel</b> untuk memasukkan pertanyaan yang telah disalin, lalu tekan <b>Salin Jawaban</b> pada kartu hasil.
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- =====================================================================
@@ -621,7 +573,7 @@
       const vLen = vWord.length;
       if (qLen < 2 || vLen < 2) return 0;
 
-      // Pencocokan awalan / potongan kata (misal: "prot" -> "protokol")
+      // Pencocokan awalan / potongan kata
       if (qLen >= 3 && vWord.startsWith(qWord)) {
         return 0.88;
       }
@@ -633,7 +585,7 @@
       if (qLen <= 4) {
         if (Math.abs(qLen - vLen) > 1) return 0;
         const dist = levenshteinDistance(qWord, vWord, 1);
-        return dist === 1 ? 0.78 : 0; // Contoh: "spa" -> "apa", "yag" -> "yang"
+        return dist === 1 ? 0.78 : 0;
       }
 
       if (qLen <= 6) {
@@ -652,7 +604,6 @@
       return 0;
     }
 
-    // Bangun peta kemiripan kata sekali per pencarian (sangat cepat!)
     function buildQuerySimMaps(queryTokens, highlightSet) {
       return queryTokens.map(qWord => {
         const isStop = STOPWORDS.has(qWord);
@@ -685,7 +636,7 @@
         return { score, type: score >= 96 ? "exact" : "high" };
       }
 
-      // 2. Cocok jika spasi tidak sengaja terhapus (misal: "apayang")
+      // 2. Cocok jika spasi tidak sengaja terhapus
       if (queryCompact.length >= 5 && item.compactSoal.includes(queryCompact)) {
         return { score: 86, type: "high" };
       }
@@ -736,7 +687,6 @@
       const combined = Math.min(0.95, tokenScore * 0.78 + diceScore * 0.22 + answerBonus);
       const percent = Math.round(combined * 100);
 
-      // Tampilkan jika skor >= 30% atau minimal ada kata kunci yang cocok kuat
       if (percent < 30 && !(strongTokenHits >= 1 && percent >= 22)) {
         return null;
       }
@@ -771,7 +721,6 @@
       const queryCompact = queryNorm.replace(/\s+/g, "");
       const rawTokens = queryNorm.split(" ").filter(Boolean);
 
-      // Jika query panjang (> 3 kata), prioritaskan kata inti; jika pendek (<= 3 kata), sertakan semua kata
       const coreTokens = rawTokens.filter(t => t.length > 1 && !STOPWORDS.has(t));
       const effectiveTokens = (rawTokens.length > 3 && coreTokens.length >= 2)
         ? coreTokens
