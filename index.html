@@ -1,143 +1,336 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bank Soal & Cari Jawaban</title>
+  <title>Bank Soal & Verifikasi Jawaban</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
+        }
+      }
+    };
+  </script>
   <style>
+    body {
+      background-color: #070b14;
+      background-image:
+        radial-gradient(ellipse 80% 45% at 50% -10%, rgba(79, 70, 229, 0.16), transparent),
+        radial-gradient(ellipse 50% 35% at 85% 10%, rgba(16, 185, 129, 0.07), transparent);
+    }
     mark {
-      background-color: #fef08a;
-      color: #0f172a;
+      background-color: rgba(250, 204, 21, 0.28);
+      color: #fef08a;
+      border-bottom: 1.5px solid #facc15;
       padding: 0 3px;
       border-radius: 3px;
       font-weight: 600;
     }
     .soal-card {
       content-visibility: auto;
-      contain-intrinsic-size: 160px;
+      contain-intrinsic-size: 165px;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
+<body class="text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
 
-  <!-- Header & Kolom Pencarian -->
-  <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-30 shadow-lg shadow-black/20">
-    <div class="max-w-3xl mx-auto px-4 pt-4 pb-3.5 space-y-3">
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-600/30">
-            <i class="fa-solid fa-magnifying-glass text-white text-sm"></i>
-          </div>
-          <div>
-            <h1 class="font-bold text-base sm:text-lg leading-tight text-white">Cari Jawaban Soal</h1>
-            <p id="statusText" class="text-xs text-slate-400">Menyiapkan database soal...</p>
-          </div>
+  <!-- Top Navigation Bar -->
+  <nav class="sticky top-0 z-30 bg-[#070b14]/85 backdrop-blur-xl border-b border-white/[0.07]">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <!-- Brand Identity -->
+      <a href="#" onclick="clearSearch(); return false;" class="flex items-center gap-3 group">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-600/25 ring-1 ring-white/15 group-hover:scale-105 transition">
+          <i class="fa-solid fa-layer-group text-white text-sm"></i>
         </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-sm sm:text-base tracking-tight text-white">SoalVault</span>
+            <span class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+              INDEXER
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-none mt-0.5">Pencarian Cepat Bank Soal</p>
+        </div>
+      </a>
 
-        <!-- Indikator Status File & Duplikat -->
+      <!-- Right Status Trigger -->
+      <div class="flex items-center gap-2">
         <button
           onclick="toggleStatusModal(true)"
-          id="dbBadge"
-          class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-300 flex items-center gap-1.5 transition"
-          title="Cek status soal1.xlsx - soal16.xlsx"
+          class="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-white/[0.08] hover:border-white/[0.15] text-xs font-medium text-slate-300 flex items-center gap-2 transition shadow-sm"
+          title="Lihat status koneksi soal1.xlsx - soal16.xlsx"
         >
-          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" id="dbDot"></span>
-          <span id="dbBadgeLabel">Memuat...</span>
+          <span class="relative flex h-2 w-2">
+            <span id="dbPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+            <span id="dbDot" class="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span>
+          </span>
+          <span id="dbBadgeLabel" class="font-mono text-[11px]">Memuat...</span>
+          <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
         </button>
       </div>
+    </div>
+  </nav>
 
-      <!-- Input Pencarian -->
-      <div class="relative flex items-center">
-        <i class="fa-solid fa-search absolute left-4 text-slate-400 pointer-events-none"></i>
-        <input
-          type="text"
-          id="searchInput"
-          placeholder="Ketik kata kunci atau tempel soal di sini..."
-          autocomplete="off"
-          class="w-full pl-11 pr-24 py-3.5 rounded-2xl bg-slate-800 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 outline-none text-sm sm:text-base text-white placeholder-slate-400 transition"
-        />
+  <!-- Sticky Search Section -->
+  <section class="sticky top-16 z-20 bg-[#070b14]/80 backdrop-blur-xl border-b border-white/[0.05] transition-all">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+      <!-- Hero Title (Otomatis tersembunyi saat user mulai mengetik) -->
+      <div id="heroHeader" class="text-center max-w-2xl mx-auto pt-3 pb-6 space-y-2.5">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium">
+          <i class="fa-solid fa-bolt text-[11px] text-amber-400"></i>
+          <span>Pencarian Multi-File Otomatis (soal1 – soal16)</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          Temukan Jawaban Soal dalam Hitungan Detik
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+          Ketik potongan kalimat, kata kunci, atau tempel teks soal lengkap. Sistem otomatis mencocokkan jawaban persis maupun soal yang paling mendekati.
+        </p>
+      </div>
 
-        <div class="absolute right-2.5 flex items-center gap-1.5">
-          <button
-            id="pasteBtn"
-            onclick="pasteFromClipboard()"
-            class="px-2.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-xs font-medium flex items-center gap-1 transition"
-            title="Tempel soal dari clipboard"
-          >
-            <i class="fa-regular fa-paste"></i>
-            <span>Tempel</span>
-          </button>
+      <!-- Main Search Box -->
+      <div class="relative max-w-3xl mx-auto">
+        <div class="relative flex items-center group">
+          <i class="fa-solid fa-magnifying-glass absolute left-4 text-slate-400 group-focus-within:text-indigo-400 transition pointer-events-none"></i>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Ketik kata kunci atau tempel pertanyaan di sini..."
+            autocomplete="off"
+            class="w-full pl-11 pr-28 py-3.5 sm:py-4 rounded-2xl bg-slate-900/95 border border-white/[0.1] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 outline-none text-sm sm:text-base text-white placeholder-slate-500 shadow-xl shadow-black/30 transition"
+          />
 
-          <button
-            id="clearBtn"
-            onclick="clearSearch()"
-            class="hidden w-8 h-8 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 flex items-center justify-center text-xs transition"
-            title="Hapus pencarian"
-          >
-            <i class="fa-solid fa-xmark"></i>
-          </button>
+          <div class="absolute right-2.5 flex items-center gap-1.5">
+            <kbd class="hidden md:inline-flex items-center justify-center px-2 py-1 text-[10px] font-mono text-slate-500 bg-slate-800/80 border border-white/[0.07] rounded-lg">
+              /
+            </kbd>
+
+            <button
+              id="pasteBtn"
+              onclick="pasteFromClipboard()"
+              class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-600/25 transition active:scale-95"
+              title="Tempel teks dari clipboard"
+            >
+              <i class="fa-regular fa-paste"></i>
+              <span>Tempel</span>
+            </button>
+
+            <button
+              id="clearBtn"
+              onclick="clearSearch()"
+              class="hidden w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs border border-white/[0.08] transition"
+              title="Hapus pencarian"
+            >
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </header>
+  </section>
 
-  <!-- Area Hasil Pencarian -->
-  <main class="flex-1 max-w-3xl w-full mx-auto px-4 py-5">
-    <div id="resultMeta" class="hidden flex items-center justify-between text-xs text-slate-400 mb-3">
-      <span id="resultCountText"></span>
-      <span class="text-slate-500">Tanpa duplikat &bull; Paling mirip</span>
-    </div>
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6">
 
-    <div id="resultsContainer" class="space-y-3.5"></div>
+    <!-- =====================================================================
+         HOME DASHBOARD VIEW (Tampil saat kolom pencarian kosong)
+         ===================================================================== -->
+    <div id="homeDashboard" class="space-y-6">
+      <!-- KPI Stat Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <!-- Card 1: Total Soal Unik -->
+        <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-400">Total Bank Soal Unik</p>
+            <p id="statUnique" class="text-2xl font-extrabold text-white mt-1 font-mono tracking-tight">0</p>
+            <p class="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+              <i class="fa-solid fa-circle-check text-[10px]"></i> Siap dicari instan
+            </p>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <i class="fa-solid fa-book-open"></i>
+          </div>
+        </div>
 
-    <div id="loadMoreWrap" class="hidden mt-5 text-center">
-      <button
-        onclick="loadMore()"
-        class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-indigo-400 transition"
-      >
-        Tampilkan hasil lainnya
-      </button>
-    </div>
-  </main>
+        <!-- Card 2: File Terhubung -->
+        <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-400">Sumber Data Aktif</p>
+            <p id="statFiles" class="text-2xl font-extrabold text-white mt-1 font-mono tracking-tight">0 / 16</p>
+            <p class="text-[11px] text-slate-400 mt-1">File <span class="font-mono text-slate-300">soal1–soal16.xlsx</span></p>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <i class="fa-solid fa-file-excel"></i>
+          </div>
+        </div>
 
-  <!-- Footer -->
-  <footer class="border-t border-slate-900 py-4 text-center text-xs text-slate-500">
-    Developed by <span class="text-slate-400 font-medium">M. Alvian</span> &bull; @alviannnnm
-  </footer>
+        <!-- Card 3: Optimasi Duplikat -->
+        <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-400">Duplikat Disaring</p>
+            <p id="statDupes" class="text-2xl font-extrabold text-white mt-1 font-mono tracking-tight">0</p>
+            <p class="text-[11px] text-slate-400 mt-1">Soal mirip tetap dipertahankan</p>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+            <i class="fa-solid fa-filter"></i>
+          </div>
+        </div>
+      </div>
 
-  <!-- Modal Cek Kelengkapan File soal1 - soal16 -->
-  <div id="statusModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl max-h-[85vh] overflow-y-auto">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-        <h2 class="font-bold text-sm sm:text-base text-white flex items-center gap-2">
-          <i class="fa-solid fa-database text-indigo-400"></i>
-          Sumber Data (soal1.xlsx - soal16.xlsx)
-        </h2>
-        <button onclick="toggleStatusModal(false)" class="text-slate-400 hover:text-white p-1">
-          <i class="fa-solid fa-xmark text-lg"></i>
+      <!-- Alert jika file belum terbaca -->
+      <div id="emptyDbAlert" class="hidden bg-amber-950/30 border border-amber-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-start gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-sm font-bold text-amber-200">File soal1.xlsx – soal16.xlsx Belum Terdeteksi</h3>
+            <p class="text-xs text-amber-300/80 leading-relaxed">
+              Pastikan file Excel berada di folder utama (root) repository GitHub yang sama dengan <code class="font-mono bg-black/30 px-1.5 py-0.5 rounded">index.html</code> dan dibuka melalui alamat GitHub Pages.
+            </p>
+          </div>
+        </div>
+        <button
+          onclick="reloadDatabase()"
+          class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-xs font-semibold shrink-0 transition"
+        >
+          <i class="fa-solid fa-rotate mr-1"></i> Muat Ulang
         </button>
       </div>
 
-      <div id="fileGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 text-xs"></div>
+      <!-- Feature Highlights & Panduan Penggunaan -->
+      <div class="bg-slate-900/50 border border-white/[0.06] rounded-2xl p-5 sm:p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i class="fa-solid fa-compass text-indigo-400"></i>
+            Cara Kerja & Kemampuan Mesin Pencari
+          </h2>
+          <button
+            onclick="toggleStatusModal(true)"
+            class="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition"
+          >
+            Cek Detail File &rarr;
+          </button>
+        </div>
 
-      <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2 text-xs">
-        <span class="text-slate-400" id="modalSummary"></span>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-white/[0.05] space-y-1.5">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs mb-2">
+              <i class="fa-solid fa-bullseye"></i>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-200">Cocok Persis & Mendekati</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Tidak perlu mengetik kalimat lengkap. Cukup 2–3 kata kunci utama atau tempel soal yang susunan katanya sedikit berbeda.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-white/[0.05] space-y-1.5">
+            <div class="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center text-xs mb-2">
+              <i class="fa-solid fa-arrow-down-wide-short"></i>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-200">Skor Kemiripan Otomatis</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Hasil paling relevan otomatis berada di posisi teratas lengkap dengan indikator akurasi dan asal file Excel-nya.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-white/[0.05] space-y-1.5">
+            <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs mb-2">
+              <i class="fa-regular fa-copy"></i>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-200">Salin Jawaban Sekali Klik</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Gunakan tombol <b>Tempel</b> di kolom cari dan <b>Salin Jawaban</b> pada kartu hasil untuk alur kerja yang cepat di HP maupun PC.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         SEARCH RESULTS VIEW (Tampil saat user mengetik pencarian)
+         ===================================================================== -->
+    <div id="searchResultsSection" class="hidden">
+      <div class="flex items-center justify-between text-xs text-slate-400 mb-3.5 px-1">
+        <span id="resultCountText" class="font-medium text-slate-300"></span>
+        <span class="text-slate-500 flex items-center gap-1.5">
+          <i class="fa-solid fa-arrow-down-short-wide text-indigo-400"></i> Urutan paling relevan
+        </span>
+      </div>
+
+      <div id="resultsContainer" class="space-y-3.5"></div>
+
+      <div id="loadMoreWrap" class="hidden mt-6 text-center">
+        <button
+          onclick="loadMore()"
+          class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/[0.1] text-xs font-semibold text-indigo-400 transition shadow-sm"
+        >
+          Tampilkan hasil lainnya
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Professional Footer -->
+  <footer class="border-t border-white/[0.06] bg-slate-950/60 py-5 mt-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-slate-400">SoalVault</span>
+        <span>&bull;</span>
+        <span>Database Excel Terindeks Lokal di Browser</span>
+      </div>
+      <div>
+        Developed by <span class="text-slate-300 font-medium">M. Alvian</span> &bull; <span class="font-mono text-slate-400">@alviannnnm</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal Diagnostik Sumber File soal1 - soal16 -->
+  <div id="statusModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
+        <div>
+          <h2 class="font-bold text-base text-white flex items-center gap-2">
+            <i class="fa-solid fa-server text-indigo-400"></i>
+            Status Indeks File Repository
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Daftar file <span class="font-mono">soal1.xlsx</span> sampai <span class="font-mono">soal16.xlsx</span></p>
+        </div>
+        <button onclick="toggleStatusModal(false)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="fileGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 text-xs"></div>
+
+      <div class="mt-5 pt-3.5 border-t border-white/[0.08] flex items-center justify-between gap-2 text-xs">
+        <span class="text-slate-400 font-medium" id="modalSummary"></span>
         <button
           onclick="reloadDatabase()"
-          class="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1.5 shrink-0"
+          class="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-semibold flex items-center gap-1.5 shrink-0 transition"
         >
-          <i class="fa-solid fa-rotate"></i> Muat Ulang
+          <i class="fa-solid fa-rotate"></i> Sinkron Ulang
         </button>
       </div>
     </div>
   </div>
 
   <!-- Toast Notifikasi -->
-  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-full bg-emerald-600 text-white text-xs font-medium shadow-xl flex items-center gap-2">
-    <i class="fa-solid fa-check-circle"></i>
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-full bg-emerald-600 text-white text-xs font-semibold shadow-2xl flex items-center gap-2 ring-1 ring-white/20">
+    <i class="fa-solid fa-circle-check"></i>
     <span id="toastMsg">Tersalin!</span>
   </div>
 
@@ -166,13 +359,15 @@
     const searchInput = document.getElementById("searchInput");
     const clearBtn = document.getElementById("clearBtn");
     const pasteBtn = document.getElementById("pasteBtn");
+    const heroHeader = document.getElementById("heroHeader");
+    const homeDashboard = document.getElementById("homeDashboard");
+    const searchResultsSection = document.getElementById("searchResultsSection");
     const resultsContainer = document.getElementById("resultsContainer");
-    const resultMeta = document.getElementById("resultMeta");
     const resultCountText = document.getElementById("resultCountText");
     const loadMoreWrap = document.getElementById("loadMoreWrap");
 
     // =========================================================================
-    // 2. NORMALISASI, DEDUPLIKASI & PRE-INDEXING CEPAT
+    // 2. NORMALISASI, DEDUPLIKASI IDENTIK & PRE-INDEXING
     // =========================================================================
     function normalizeText(str) {
       return String(str ?? "")
@@ -182,7 +377,6 @@
         .trim();
     }
 
-    // Hapus nomor soal di awal (misal: "1. ", "12) ", "05 - ") untuk deteksi duplikat akurat
     function getCanonicalDedupText(str) {
       const noNum = String(str ?? "").replace(/^\s*\d+[\.\)\-\:]\s*/, "");
       return normalizeText(noNum);
@@ -203,7 +397,6 @@
       const tokens = normSoal.split(" ").filter(Boolean);
       const coreTokens = tokens.filter(t => t.length > 1 && !STOPWORDS.has(t));
 
-      // Pre-compute bigram tiap kata agar pencarian fuzzy tidak menghitung ulang
       const tokenEntries = tokens.map(t => ({
         word: t,
         bigrams: t.length >= 3 ? getBigrams(t) : null
@@ -223,7 +416,7 @@
     }
 
     // =========================================================================
-    // 3. PARSER EXCEL & PENGHAPUS SOAL/JAWABAN GANDA
+    // 3. PARSER EXCEL & PENGHAPUS DUPLIKAT IDENTIK
     // =========================================================================
     function parseWorkbook(wb, filename) {
       const rawItems = [];
@@ -239,7 +432,6 @@
           const col1 = String(row[1] ?? "").trim();
           if (!col0 || !col1) continue;
 
-          // Lewati baris header tabel
           if (
             i === 0 &&
             /^(no|nomor|soal|pertanyaan|question|tanya)$/i.test(col0) &&
@@ -248,7 +440,6 @@
             continue;
           }
 
-          // Dukung 3 kolom (No | Soal | Jawaban) atau 2 kolom (Soal | Jawaban)
           let soalText = col0;
           let jawabText = col1;
           if (/^\d+\.?$/.test(col0) && row[2] !== undefined && String(row[2]).trim() !== "") {
@@ -263,12 +454,13 @@
     }
 
     async function loadDatabase() {
-      const statusText = document.getElementById("statusText");
       const dbBadgeLabel = document.getElementById("dbBadgeLabel");
       const dbDot = document.getElementById("dbDot");
+      const dbPing = document.getElementById("dbPing");
 
-      statusText.textContent = "Memuat & menyaring duplikat...";
-      dbDot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+      dbBadgeLabel.textContent = "Indexing...";
+      dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-amber-400";
+      dbPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
 
       const v = Date.now();
       const results = await Promise.all(
@@ -286,7 +478,6 @@
         })
       );
 
-      // Deduplikasi global di seluruh file soal1 - soal16
       const uniqueMap = new Map();
       let dupCount = 0;
       let activeFiles = 0;
@@ -300,6 +491,7 @@
             const cJawab = normalizeText(raw.jawaban);
             if (!cSoal || !cJawab) continue;
 
+            // Hanya dianggap ganda jika SOAL + JAWABAN sama persis
             const dedupKey = `${cSoal}|||${cJawab}`;
             const existing = uniqueMap.get(dedupKey);
 
@@ -318,15 +510,21 @@
       bankSoal = Array.from(uniqueMap.values());
       duplicateRemovedCount = dupCount;
 
+      // Update Dashboard KPI Stats
+      document.getElementById("statUnique").textContent = bankSoal.length.toLocaleString("id-ID");
+      document.getElementById("statFiles").textContent = `${activeFiles} / ${TOTAL_FILES}`;
+      document.getElementById("statDupes").textContent = dupCount.toLocaleString("id-ID");
+
       if (activeFiles > 0) {
-        dbDot.className = "w-2 h-2 rounded-full bg-emerald-400";
-        dbBadgeLabel.textContent = `${activeFiles}/${TOTAL_FILES} File`;
-        const dupInfo = dupCount > 0 ? ` (${dupCount.toLocaleString("id-ID")} ganda dihapus)` : "";
-        statusText.textContent = `${bankSoal.length.toLocaleString("id-ID")} soal unik${dupInfo}`;
+        dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-emerald-400";
+        dbPing.className = "hidden";
+        dbBadgeLabel.textContent = `${activeFiles}/${TOTAL_FILES} Aktif`;
+        document.getElementById("emptyDbAlert").classList.add("hidden");
       } else {
-        dbDot.className = "w-2 h-2 rounded-full bg-rose-400";
+        dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-rose-400";
+        dbPing.className = "hidden";
         dbBadgeLabel.textContent = "0 File";
-        statusText.textContent = "File soal1.xlsx - soal16.xlsx belum terbaca";
+        document.getElementById("emptyDbAlert").classList.remove("hidden");
       }
 
       renderFileGrid(activeFiles);
@@ -334,14 +532,13 @@
     }
 
     // =========================================================================
-    // 4. ALGORITMA PENCARIAN CEPAT & AKURAT
+    // 4. ALGORITMA PENCARIAN KEMIRIPAN CEPAT
     // =========================================================================
     function fastWordSimilarity(qWord, qBigrams, targetEntry) {
       const tWord = targetEntry.word;
       if (qWord === tWord) return 1;
       if (qWord.length < 3 || tWord.length < 3) return 0;
 
-      // Filter cepat selisih panjang kata agar tidak buang CPU
       const maxLen = Math.max(qWord.length, tWord.length);
       const minLen = Math.min(qWord.length, tWord.length);
       if (minLen / maxLen < 0.6) return 0;
@@ -359,14 +556,12 @@
     }
 
     function computeRelevance(queryNorm, preparedQueryTokens, qBigrams, item) {
-      // 1. Kecocokan frasa persis
       if (item.normSoal.includes(queryNorm)) {
         const lengthRatio = Math.min(1, queryNorm.length / Math.max(item.normSoal.length, 1));
         const score = Math.round(88 + lengthRatio * 12);
         return { score, type: score >= 96 ? "exact" : "high" };
       }
 
-      // 2. Kecocokan kata-kata inti
       let matchedWeight = 0;
       let totalWeight = 0;
 
@@ -389,12 +584,10 @@
 
       const tokenScore = totalWeight > 0 ? (matchedWeight / totalWeight) : 0;
 
-      // Lewati perhitungan bigram kalimat jika kemiripan kata terlalu rendah (hemat CPU)
       if (tokenScore < 0.25 && queryNorm.length >= 6 && !item.normJawab.includes(queryNorm)) {
         return null;
       }
 
-      // 3. Kemiripan bigram keseluruhan kalimat
       let bigramOverlap = 0;
       if (qBigrams.size > 0 && item.bigrams.size > 0) {
         for (const bg of qBigrams) {
@@ -405,7 +598,6 @@
         ? (2 * bigramOverlap) / (qBigrams.size + item.bigrams.size)
         : 0;
 
-      // 4. Bonus jika kata kunci ada di kolom jawaban
       let answerBonus = 0;
       if (queryNorm.length >= 4 && item.normJawab.includes(queryNorm)) {
         answerBonus = 0.25;
@@ -429,24 +621,23 @@
       clearBtn.classList.toggle("hidden", !hasQuery);
       pasteBtn.classList.toggle("hidden", hasQuery);
 
+      // Switch antara Home Dashboard dan Hasil Pencarian
+      heroHeader.classList.toggle("hidden", hasQuery);
+      homeDashboard.classList.toggle("hidden", hasQuery);
+      searchResultsSection.classList.toggle("hidden", !hasQuery);
+
       if (!hasQuery) {
-        resultMeta.classList.add("hidden");
         loadMoreWrap.classList.add("hidden");
-        renderEmptyPrompt();
         return;
       }
 
       const queryNorm = normalizeText(raw);
-      if (!queryNorm) {
-        renderEmptyPrompt();
-        return;
-      }
+      if (!queryNorm) return;
 
       const rawTokens = queryNorm.split(" ").filter(Boolean);
       const coreTokens = rawTokens.filter(t => t.length > 1 && !STOPWORDS.has(t));
       const effectiveTokens = coreTokens.length > 0 ? coreTokens : rawTokens;
 
-      // Pre-compute query tokens sekali per pencarian
       const preparedQueryTokens = effectiveTokens.map(w => ({
         word: w,
         weight: w.length >= 5 ? 1.5 : 1.0,
@@ -476,7 +667,7 @@
     }
 
     // =========================================================================
-    // 5. RENDER TAMPILAN HASIL
+    // 5. RENDER HASIL PENCARIAN
     // =========================================================================
     function escapeHtml(str) {
       return String(str ?? "")
@@ -500,49 +691,21 @@
 
     function formatSourceBadge(sources) {
       if (sources.length === 1) return escapeHtml(sources[0]);
-      return `${escapeHtml(sources[0])} +${sources.length - 1} file`;
-    }
-
-    function renderEmptyPrompt() {
-      if (bankSoal.length === 0) {
-        resultsContainer.innerHTML = `
-          <div class="text-center py-12 px-5 bg-slate-900/70 border border-slate-800 rounded-2xl space-y-2.5">
-            <i class="fa-solid fa-folder-open text-3xl text-amber-400"></i>
-            <p class="text-sm font-semibold text-slate-200">File soal1.xlsx - soal16.xlsx belum ditemukan</p>
-            <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-              Pastikan file Excel sudah di-upload ke folder utama repository GitHub dan dibuka melalui link GitHub Pages.
-            </p>
-          </div>
-        `;
-        return;
-      }
-
-      resultsContainer.innerHTML = `
-        <div class="text-center py-14 px-5 bg-slate-900/50 border border-slate-800/80 rounded-2xl space-y-3">
-          <div class="w-12 h-12 rounded-2xl bg-indigo-600/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
-            <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
-          </div>
-          <div class="space-y-1">
-            <p class="text-sm sm:text-base font-semibold text-slate-200">Ketik atau tempel soal di kolom atas</p>
-            <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-              Siap mencari dari <b>${bankSoal.length.toLocaleString("id-ID")} soal unik</b> (soal ganda otomatis disembunyikan agar pencarian tetap cepat).
-            </p>
-          </div>
-        </div>
-      `;
+      return `${escapeHtml(sources[0])} +${sources.length - 1}`;
     }
 
     function renderMatches(highlightTokens) {
-      resultMeta.classList.remove("hidden");
-      resultCountText.textContent = `Ditemukan ${currentMatches.length} hasil unik`;
+      resultCountText.textContent = `Ditemukan ${currentMatches.length} hasil relevan`;
 
       if (currentMatches.length === 0) {
         loadMoreWrap.classList.add("hidden");
         resultsContainer.innerHTML = `
-          <div class="text-center py-14 px-4 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-1.5">
-            <i class="fa-regular fa-face-frown text-3xl text-slate-500 mb-1"></i>
-            <p class="text-sm font-medium text-slate-300">Tidak ada soal yang cocok atau mendekati</p>
-            <p class="text-xs text-slate-500">Coba ketik 2-3 kata kunci utama dari soal tersebut.</p>
+          <div class="text-center py-14 px-4 bg-slate-900/60 border border-white/[0.07] rounded-2xl space-y-2">
+            <div class="w-12 h-12 rounded-2xl bg-slate-800/80 text-slate-400 flex items-center justify-center mx-auto">
+              <i class="fa-regular fa-face-frown text-xl"></i>
+            </div>
+            <p class="text-sm font-semibold text-slate-200">Tidak ada soal yang cocok atau mendekati</p>
+            <p class="text-xs text-slate-400">Coba gunakan 2–3 kata kunci inti dari pertanyaan tersebut.</p>
           </div>
         `;
         return;
@@ -554,20 +717,20 @@
       resultsContainer.innerHTML = slice.map(({ item, score, type }) => {
         let badgeHtml = "";
         if (type === "exact") {
-          badgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><i class="fa-solid fa-check"></i> Cocok Persis</span>`;
+          badgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><i class="fa-solid fa-check text-[10px]"></i> Cocok Persis</span>`;
         } else if (type === "high") {
-          badgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30">Sangat Mirip (${score}%)</span>`;
+          badgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30">Sangat Mirip &bull; ${score}%</span>`;
         } else {
-          badgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">Mendekati (${score}%)</span>`;
+          badgeHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">Mendekati &bull; ${score}%</span>`;
         }
 
         return `
-          <article class="soal-card bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 sm:p-5 transition shadow-sm">
+          <article class="soal-card bg-slate-900/85 border border-white/[0.08] hover:border-white/[0.15] rounded-2xl p-4 sm:p-5 transition shadow-md">
             <div class="flex items-center justify-between gap-2 flex-wrap">
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-2">
                 ${badgeHtml}
                 <span
-                  class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-800 text-slate-400"
+                  class="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-medium bg-slate-800/90 text-slate-400 border border-white/[0.06]"
                   title="${escapeHtml(item.sources.join(", "))}"
                 >
                   ${formatSourceBadge(item.sources)}
@@ -576,20 +739,20 @@
 
               <button
                 onclick="copyText('${encodeURIComponent(item.jawaban)}')"
-                class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-indigo-950/50 transition"
+                class="text-xs font-medium text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 py-1.5 px-3 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 transition active:scale-95"
               >
                 <i class="fa-regular fa-copy"></i>
                 <span>Salin Jawaban</span>
               </button>
             </div>
 
-            <p class="mt-2.5 text-sm sm:text-base text-slate-200 leading-relaxed whitespace-pre-line">${highlightWords(item.soal, highlightTokens)}</p>
+            <p class="mt-3 text-sm sm:text-base text-slate-200 leading-relaxed whitespace-pre-line">${highlightWords(item.soal, highlightTokens)}</p>
 
-            <div class="mt-3.5 pt-3 bg-emerald-950/25 px-3.5 py-2.5 rounded-xl border border-emerald-800/40">
+            <div class="mt-4 bg-emerald-950/30 px-4 py-3 rounded-xl border border-emerald-500/25">
               <div class="text-[11px] uppercase tracking-wider font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
-                <i class="fa-solid fa-circle-check"></i> Jawaban:
+                <i class="fa-solid fa-circle-check"></i> Jawaban Terverifikasi
               </div>
-              <p class="text-sm sm:text-base font-semibold text-emerald-200 leading-relaxed whitespace-pre-line">${highlightWords(item.jawaban, highlightTokens)}</p>
+              <p class="text-sm sm:text-base font-semibold text-emerald-100 leading-relaxed whitespace-pre-line">${highlightWords(item.jawaban, highlightTokens)}</p>
             </div>
           </article>
         `;
@@ -604,11 +767,21 @@
     }
 
     // =========================================================================
-    // 6. EVENT HANDLER & UTILITAS
+    // 6. EVENT HANDLERS & SHORTCUTS
     // =========================================================================
     searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(runSearch, 120);
+      debounceTimer = setTimeout(runSearch, 110);
+    });
+
+    // Tekan tombol "/" di keyboard untuk langsung fokus ke kolom pencarian
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "/" && document.activeElement !== searchInput) {
+        e.preventDefault();
+        searchInput.focus();
+      } else if (e.key === "Escape" && document.activeElement === searchInput && searchInput.value) {
+        clearSearch();
+      }
     });
 
     function clearSearch() {
@@ -634,7 +807,7 @@
 
     function copyText(encoded) {
       navigator.clipboard.writeText(decodeURIComponent(encoded)).then(() => {
-        showToast("Jawaban berhasil disalin!");
+        showToast("Jawaban disalin ke clipboard!");
       });
     }
 
@@ -644,24 +817,24 @@
 
     function renderFileGrid(activeFiles) {
       document.getElementById("modalSummary").textContent =
-        `${activeFiles}/${TOTAL_FILES} file • ${duplicateRemovedCount} duplikat disaring`;
+        `${activeFiles}/${TOTAL_FILES} file terhubung • ${duplicateRemovedCount} duplikat disaring`;
 
       document.getElementById("fileGrid").innerHTML = fileStatuses.map(st => {
         if (st.ok && st.rawCount > 0) {
           return `
-            <div class="p-2 rounded-xl bg-emerald-950/40 border border-emerald-800/60">
-              <div class="font-semibold text-emerald-300 flex items-center justify-between">
+            <div class="p-2.5 rounded-xl bg-emerald-950/35 border border-emerald-500/25">
+              <div class="font-mono font-semibold text-emerald-300 flex items-center justify-between">
                 <span>${st.filename}</span>
-                <i class="fa-solid fa-check text-[10px]"></i>
+                <i class="fa-solid fa-circle-check text-[10px]"></i>
               </div>
-              <div class="text-[11px] text-emerald-400/80 mt-0.5">${st.rawCount} baris</div>
+              <div class="text-[11px] text-emerald-400/80 mt-1">${st.rawCount} baris</div>
             </div>
           `;
         }
         return `
-          <div class="p-2 rounded-xl bg-slate-800/50 border border-slate-800 opacity-55">
-            <div class="font-medium text-slate-400">${st.filename}</div>
-            <div class="text-[11px] text-slate-500 mt-0.5">Kosong</div>
+          <div class="p-2.5 rounded-xl bg-slate-950/60 border border-white/[0.05] opacity-55">
+            <div class="font-mono font-medium text-slate-400">${st.filename}</div>
+            <div class="text-[11px] text-slate-500 mt-1">Tidak tersedia</div>
           </div>
         `;
       }).join("");
@@ -670,7 +843,7 @@
     function reloadDatabase() {
       toggleStatusModal(false);
       loadDatabase();
-      showToast("Memuat ulang file Excel...");
+      showToast("Menyinkronkan ulang soal1 – soal16...");
     }
 
     let toastTimer;
