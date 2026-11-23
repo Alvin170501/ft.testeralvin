@@ -24,7 +24,6 @@
     };
   </script>
   <style>
-    /* Mencegah tidak sengaja pull-to-refresh saat mengusap layar ke bawah di HP */
     html, body {
       overscroll-behavior-y: contain;
     }
@@ -115,7 +114,7 @@
         </div>
       </div>
 
-      <!-- Banner Notifikasi Jika Ada Pembaruan Berkas di Server -->
+      <!-- Banner Pembaruan Berkas -->
       <div id="updateBanner" class="hidden max-w-3xl mx-auto mb-3.5 bg-indigo-500/15 border border-indigo-500/35 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-indigo-200">
         <div class="flex items-center gap-2.5">
           <i class="fa-solid fa-cloud-arrow-down text-indigo-400"></i>
@@ -179,7 +178,6 @@
          HOME DASHBOARD VIEW (Tampil saat kolom pencarian kosong)
          ===================================================================== -->
     <div id="homeDashboard" class="space-y-6">
-      <!-- Stat Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
           <div>
@@ -321,8 +319,10 @@
 
   <script>
     // =========================================================================
-    // 1. KONFIGURASI BERKAS & CACHE INDEXEDDB
+    // 1. KONFIGURASI FIREBASE & BERKAS SOAL
     // =========================================================================
+    const FIREBASE_DB_URL = "https://trafficview-c2caf-default-rtdb.asia-southeast1.firebasedatabase.app";
+
     const TOTAL_FILES = 16;
     const FILE_NAMES = Array.from({ length: TOTAL_FILES }, (_, i) => `soal${i + 1}.xlsx`);
     const IDB_NAME = "BankSoalCache_Alvian";
@@ -361,10 +361,81 @@
     const loadMoreWrap = document.getElementById("loadMoreWrap");
 
     // =========================================================================
-    // 2. PERLINDUNGAN ANTI-REFRESH TIDAK SENGAJA
+    // 2. PENCATAT PENGUNJUNG TERSEMBUNYI KE FIREBASE (WRITE-ONLY)
+    // =========================================================================
+    function getDeviceSummary() {
+      const ua = navigator.userAgent || "";
+      let os = "Unknown OS";
+      if (/Android/i.test(ua)) os = "Android";
+      else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+      else if (/Windows/i.test(ua)) os = "Windows";
+      else if (/Mac OS X/i.test(ua)) os = "macOS";
+      else if (/Linux/i.test(ua)) os = "Linux";
+
+      let browser = "Browser";
+      if (/Edg\//i.test(ua)) browser = "Edge";
+      else if (/OPR\/|Opera/i.test(ua)) browser = "Opera";
+      else if (/SamsungBrowser/i.test(ua)) browser = "Samsung Internet";
+      else if (/Chrome\//i.test(ua)) browser = "Chrome";
+      else if (/Firefox\//i.test(ua)) browser = "Firefox";
+      else if (/Safari\//i.test(ua)) browser = "Safari";
+
+      return `${os} • ${browser}`;
+    }
+
+    function formatWaktuWIB() {
+      try {
+        return new Intl.DateTimeFormat("id-ID", {
+          timeZone: "Asia/Jakarta",
+          dateStyle: "medium",
+          timeStyle: "medium"
+        }).format(new Date()) + " WIB";
+      } catch {
+        return new Date().toISOString();
+      }
+    }
+
+    function trackVisitorSilently() {
+      if (!FIREBASE_DB_URL) return;
+
+      try {
+        const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
+        let visitorId = localStorage.getItem("sv_uid_v1");
+        let firstVisit = localStorage.getItem("sv_first_v1");
+        let visitCount = parseInt(localStorage.getItem("sv_count_v1") || "0", 10) + 1;
+        const nowWIB = formatWaktuWIB();
+
+        if (!visitorId) {
+          const rand = Math.random().toString(36).substring(2, 10);
+          visitorId = `user_${Date.now().toString(36)}_${rand}`;
+          firstVisit = nowWIB;
+          localStorage.setItem("sv_uid_v1", visitorId);
+          localStorage.setItem("sv_first_v1", firstVisit);
+        }
+        localStorage.setItem("sv_count_v1", String(visitCount));
+
+        const payload = {
+          pertama_akses: firstVisit,
+          terakhir_akses: nowWIB,
+          jumlah_buka: visitCount,
+          perangkat: getDeviceSummary(),
+          layar: `${window.screen.width}x${window.screen.height}`,
+          timestamp: Date.now()
+        };
+
+        fetch(`${cleanUrl}/visitors/${visitorId}.json`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true
+        }).catch(() => {});
+      } catch {}
+    }
+
+    // =========================================================================
+    // 3. PERLINDUNGAN ANTI-REFRESH TIDAK SENGAJA
     // =========================================================================
     window.addEventListener("beforeunload", (e) => {
-      // Tampilkan peringatan browser saat proses muat berjalan atau saat sudah ada data/pencarian aktif
       if (isCurrentlyLoading || searchInput.value.trim().length > 0 || bankSoal.length > 0) {
         e.preventDefault();
         e.returnValue = "";
@@ -372,7 +443,7 @@
     });
 
     // =========================================================================
-    // 3. HELPER INDEXEDDB (MEMBUAT RELOAD JADI INSTAN < 0.2 DETIK)
+    // 4. HELPER INDEXEDDB (MEMBUAT RELOAD JADI INSTAN < 0.2 DETIK)
     // =========================================================================
     function openCacheDB() {
       return new Promise((resolve, reject) => {
@@ -414,9 +485,7 @@
           req.onsuccess = () => resolve();
           req.onerror = () => reject(req.error);
         });
-      } catch (err) {
-        console.warn("Gagal menyimpan cache lokal:", err);
-      }
+      } catch {}
     }
 
     async function clearCacheDB() {
@@ -432,7 +501,7 @@
     }
 
     // =========================================================================
-    // 4. NORMALISASI, DEDUPLIKASI & VOCABULARY INDEXING
+    // 5. NORMALISASI, DEDUPLIKASI & VOCABULARY INDEXING
     // =========================================================================
     function normalizeText(str) {
       return String(str ?? "")
@@ -476,7 +545,7 @@
     }
 
     // =========================================================================
-    // 5. PARSER EXCEL, CACHE LOADER & SINKRONISASI SERVER
+    // 6. PARSER EXCEL, CACHE LOADER & SINKRONISASI SERVER
     // =========================================================================
     function parseWorkbook(wb, filename) {
       const rawItems = [];
@@ -587,7 +656,6 @@
       const dbDot = document.getElementById("dbDot");
       const dbPing = document.getElementById("dbPing");
 
-      // 1. Cek Cache Lokal terlebih dahulu agar refresh berjalan instan (< 0.2 detik)
       if (!forceFresh) {
         const cached = await readFromCache();
         if (cached && Array.isArray(cached.bankSoal) && cached.bankSoal.length > 0) {
@@ -603,7 +671,6 @@
           setLoadingState(false);
           runSearch();
 
-          // Cek pembaruan berkas di server secara diam-diam di latar belakang
           checkServerSignature().then(latestSig => {
             if (latestSig && cached.signature && latestSig !== cached.signature) {
               updateBanner.classList.remove("hidden");
@@ -613,7 +680,6 @@
         }
       }
 
-      // 2. Unduh & Proses dari Server GitHub
       setLoadingState(true);
       updateBanner.classList.add("hidden");
       dbBadgeLabel.textContent = "Memuat...";
@@ -685,7 +751,6 @@
 
         applyDatabaseUI(activeFiles);
 
-        // Simpan ke IndexedDB agar jika ter-refresh tidak perlu menunggu lagi
         if (bankSoal.length > 0) {
           const serializableBank = bankSoal.map(item => ({
             ...item,
@@ -714,7 +779,7 @@
     }
 
     // =========================================================================
-    // 6. ALGORITMA FUZZY & EDIT DISTANCE
+    // 7. ALGORITMA FUZZY & EDIT DISTANCE
     // =========================================================================
     function levenshteinDistance(a, b, maxDist) {
       const lenA = a.length;
@@ -925,7 +990,7 @@
     }
 
     // =========================================================================
-    // 7. RENDER HASIL PENCARIAN
+    // 8. RENDER HASIL PENCARIAN
     // =========================================================================
     function escapeHtml(str) {
       return String(str ?? "")
@@ -1023,7 +1088,7 @@
     }
 
     // =========================================================================
-    // 8. EVENT HANDLERS & SHORTCUTS
+    // 9. EVENT HANDLERS & SHORTCUTS
     // =========================================================================
     searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
@@ -1120,6 +1185,8 @@
       toastTimer = setTimeout(() => toast.classList.add("hidden"), 2500);
     }
 
+    // Jalankan pencatatan pengunjung & pemuatan soal
+    trackVisitorSilently();
     loadDatabase();
   </script>
 </body>
