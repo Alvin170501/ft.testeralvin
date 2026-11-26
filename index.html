@@ -9,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -66,7 +65,7 @@
         <button
           onclick="toggleStatusModal(true)"
           class="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-white/[0.08] hover:border-white/[0.15] text-xs font-medium text-slate-300 flex items-center gap-2 transition shadow-sm"
-          title="Lihat status berkas soal1.xlsx - soal68.xlsx"
+          title="Lihat status database data1.json"
         >
           <span class="relative flex h-2 w-2">
             <span id="dbPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -104,11 +103,11 @@
         </p>
       </div>
 
-      <!-- Peringatan Tunggu Saat Memuat Data Soal -->
+      <!-- Indikator Muat Singkat -->
       <div id="loadingWarning" class="max-w-3xl mx-auto mb-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-4 py-3 flex items-center gap-3 text-xs text-amber-200 shadow-sm">
         <i class="fa-solid fa-circle-notch fa-spin text-amber-400 text-base shrink-0"></i>
         <div class="leading-relaxed">
-          <span class="font-bold text-amber-300">Mohon tunggu sebentar:</span> Sedang memproses data <span class="font-mono text-amber-100">soal1.xlsx</span> – <span class="font-mono text-amber-100">soal68.xlsx</span> (<span id="loadingProgressText" class="font-mono font-bold text-amber-300">0/68</span>). Setelah selesai, buka berikutnya langsung instan.
+          <span class="font-bold text-amber-300">Menyiapkan database:</span> Mengunduh indeks soal dari <span class="font-mono text-amber-100">data1.json</span>...
         </div>
       </div>
 
@@ -116,7 +115,7 @@
       <div id="updateBanner" class="hidden max-w-3xl mx-auto mb-3.5 bg-indigo-500/15 border border-indigo-500/35 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-indigo-200">
         <div class="flex items-center gap-2.5">
           <i class="fa-solid fa-cloud-arrow-down text-indigo-400"></i>
-          <span>Tersedia pembaruan data pada berkas soal di server.</span>
+          <span>Tersedia pembaruan data pada <span class="font-mono">data1.json</span> di server.</span>
         </div>
         <button
           onclick="forceSyncFromServer()"
@@ -134,7 +133,7 @@
             type="text"
             id="searchInput"
             disabled
-            placeholder="Harap tunggu sampai seluruh soal selesai dimuat..."
+            placeholder="Harap tunggu sebentar..."
             autocomplete="off"
             class="w-full pl-11 pr-28 py-3.5 sm:py-4 rounded-2xl bg-slate-900/95 border border-white/[0.1] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 outline-none text-sm sm:text-base text-white placeholder-slate-500 shadow-xl shadow-black/30 transition disabled:opacity-60 disabled:cursor-not-allowed"
           />
@@ -190,37 +189,37 @@
 
         <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
           <div>
-            <p class="text-xs font-medium text-slate-400">Berkas Soal Aktif</p>
-            <p id="statFiles" class="text-2xl font-extrabold text-white mt-1 font-mono tracking-tight">0 / 68</p>
-            <p class="text-[11px] text-slate-400 mt-1">Dari <span class="font-mono text-slate-300">soal1–soal68.xlsx</span></p>
+            <p class="text-xs font-medium text-slate-400">Sumber Data</p>
+            <p id="statSourceCount" class="text-2xl font-extrabold text-white mt-1 font-mono tracking-tight">68 Berkas</p>
+            <p class="text-[11px] text-slate-400 mt-1">Tergabung dalam <span class="font-mono text-slate-300">data1.json</span></p>
           </div>
           <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
-            <i class="fa-solid fa-file-excel"></i>
+            <i class="fa-solid fa-database"></i>
           </div>
         </div>
 
         <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
           <div>
-            <p class="text-xs font-medium text-slate-400">Soal Ganda Disaring</p>
-            <p id="statDupes" class="text-2xl font-extrabold text-white mt-1 font-mono tracking-tight">0</p>
-            <p class="text-[11px] text-slate-400 mt-1">Soal serupa tetap dipertahankan</p>
+            <p class="text-xs font-medium text-slate-400">Ukuran Indeks</p>
+            <p id="statSize" class="text-2xl font-extrabold text-white mt-1 font-mono tracking-tight">0 MB</p>
+            <p class="text-[11px] text-slate-400 mt-1">Soal ganda sudah dibersihkan</p>
           </div>
           <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
-            <i class="fa-solid fa-filter"></i>
+            <i class="fa-solid fa-bolt"></i>
           </div>
         </div>
       </div>
 
-      <!-- Alert jika berkas tidak ditemukan -->
+      <!-- Alert jika data1.json tidak ditemukan -->
       <div id="emptyDbAlert" class="hidden bg-rose-950/30 border border-rose-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div class="flex items-start gap-3.5">
           <div class="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
             <i class="fa-solid fa-triangle-exclamation"></i>
           </div>
           <div class="space-y-1">
-            <h3 class="text-sm font-bold text-rose-200">Berkas soal1.xlsx – soal68.xlsx Tidak Ditemukan</h3>
+            <h3 class="text-sm font-bold text-rose-200">Berkas data1.json Tidak Ditemukan</h3>
             <p class="text-xs text-rose-300/80 leading-relaxed">
-              Pastikan berkas Excel sudah diunggah sejajar dengan <code class="font-mono bg-black/30 px-1.5 py-0.5 rounded">index.html</code> pada repositori GitHub dan diakses melalui tautan GitHub Pages.
+              Pastikan <code class="font-mono bg-black/30 px-1.5 py-0.5 rounded">data1.json</code> sudah diunggah sejajar dengan <code class="font-mono bg-black/30 px-1.5 py-0.5 rounded">index.html</code> pada repositori GitHub.
             </p>
           </div>
         </div>
@@ -274,30 +273,30 @@
     </div>
   </footer>
 
-  <!-- Modal Daftar Berkas -->
+  <!-- Modal Info Database -->
   <div id="statusModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overscroll-contain">
-    <div class="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto overscroll-contain">
+    <div class="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl">
       <div class="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
         <div>
           <h2 class="font-bold text-base text-white flex items-center gap-2">
-            <i class="fa-solid fa-folder-open text-indigo-400"></i>
-            Rincian Berkas Soal
+            <i class="fa-solid fa-database text-indigo-400"></i>
+            Status Database Soal
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Status pemuatan <span class="font-mono">soal1.xlsx</span> sampai <span class="font-mono">soal68.xlsx</span></p>
+          <p class="text-xs text-slate-400 mt-0.5">Sumber terpadu <span class="font-mono">data1.json</span> (soal1–soal68)</p>
         </div>
         <button onclick="toggleStatusModal(false)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div id="fileGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 text-xs"></div>
+      <div id="modalDetails" class="mt-4 space-y-2.5 text-xs"></div>
 
       <div class="mt-5 pt-3.5 border-t border-white/[0.08] flex items-center justify-between gap-2 text-xs">
         <span class="text-slate-400 font-medium" id="modalSummary"></span>
         <button
           onclick="forceSyncFromServer()"
           class="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-semibold flex items-center gap-1.5 shrink-0 transition"
-          title="Unduh ulang seluruh berkas dari server"
+          title="Unduh ulang data1.json dari server"
         >
           <i class="fa-solid fa-rotate"></i> Sinkron Server
         </button>
@@ -313,15 +312,14 @@
 
   <script>
     // =========================================================================
-    // 1. KONFIGURASI FIREBASE & BERKAS SOAL (soal1.xlsx - soal68.xlsx)
+    // 1. KONFIGURASI FIREBASE & SUMBER DATA JSON
     // =========================================================================
     const FIREBASE_DB_URL = "https://trafficview-c2caf-default-rtdb.asia-southeast1.firebasedatabase.app";
 
-    const TOTAL_FILES = 68;
-    const FILE_NAMES = Array.from({ length: TOTAL_FILES }, (_, i) => `soal${i + 1}.xlsx`);
+    const DATA_FILE = "data1.json";
     const IDB_NAME = "BankSoalCache_Alvian";
     const IDB_STORE = "indexStore";
-    const IDB_KEY = "soal1_68_fast_v2";
+    const IDB_KEY = "data1_json_index_v1";
 
     const STOPWORDS = new Set([
       "apa", "yang", "di", "ke", "dari", "pada", "adalah", "yaitu", "yakni",
@@ -335,10 +333,9 @@
     let isCurrentlyLoading = false;
     let bankSoal = [];
     let uniqueVocab = [];
-    let fileStatuses = [];
+    let fileSizeMB = 0;
     let currentMatches = [];
     let currentHighlightWords = [];
-    let duplicateRemovedCount = 0;
     let visibleLimit = 25;
     let debounceTimer = null;
 
@@ -346,7 +343,6 @@
     const clearBtn = document.getElementById("clearBtn");
     const pasteBtn = document.getElementById("pasteBtn");
     const loadingWarning = document.getElementById("loadingWarning");
-    const loadingProgressText = document.getElementById("loadingProgressText");
     const updateBanner = document.getElementById("updateBanner");
     const heroHeader = document.getElementById("heroHeader");
     const homeDashboard = document.getElementById("homeDashboard");
@@ -354,8 +350,6 @@
     const resultsContainer = document.getElementById("resultsContainer");
     const resultCountText = document.getElementById("resultCountText");
     const loadMoreWrap = document.getElementById("loadMoreWrap");
-
-    const yieldFrame = () => new Promise(r => setTimeout(r, 0));
 
     // =========================================================================
     // 2. PENCATAT PENGUNJUNG TERSEMBUNYI KE FIREBASE (WRITE-ONLY)
@@ -430,17 +424,7 @@
     }
 
     // =========================================================================
-    // 3. PERLINDUNGAN ANTI-REFRESH TIDAK SENGAJA
-    // =========================================================================
-    window.addEventListener("beforeunload", (e) => {
-      if (isCurrentlyLoading || searchInput.value.trim().length > 0) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    });
-
-    // =========================================================================
-    // 4. HELPER INDEXEDDB (CACHE RINGAN & INSTAN)
+    // 3. HELPER INDEXEDDB (CACHE LOKAL INSTAN)
     // =========================================================================
     function openCacheDB() {
       return new Promise((resolve, reject) => {
@@ -498,11 +482,10 @@
     }
 
     // =========================================================================
-    // 5. NORMALISASI TEKS & BIGRAM ON-DEMAND
+    // 4. NORMALISASI TEKS & BIGRAM
     // =========================================================================
     const CLEAN_REGEX = /[^a-z0-9\s]/g;
     const SPACE_REGEX = /\s+/g;
-    const NUM_PREFIX_REGEX = /^\s*\d+[\.\)\-\:]\s*/;
 
     function normalizeText(str) {
       return String(str ?? "")
@@ -510,10 +493,6 @@
         .replace(CLEAN_REGEX, " ")
         .replace(SPACE_REGEX, " ")
         .trim();
-    }
-
-    function getCanonicalDedupText(str) {
-      return normalizeText(String(str ?? "").replace(NUM_PREFIX_REGEX, ""));
     }
 
     function getBigrams(cleanStr) {
@@ -525,43 +504,8 @@
     }
 
     // =========================================================================
-    // 6. PARSER EXCEL CEPAT (DENSE MODE, TANPA STYLE)
+    // 5. PEMUAT DATA JSON SUPER CEPAT
     // =========================================================================
-    function parseWorkbookFast(wb, filename) {
-      const rawItems = [];
-      for (const sheetName of wb.SheetNames) {
-        const sheet = wb.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-
-        for (let i = 0; i < rows.length; i++) {
-          const row = rows[i];
-          if (!Array.isArray(row) || row.length < 2) continue;
-
-          const col0 = String(row[0] ?? "").trim();
-          const col1 = String(row[1] ?? "").trim();
-          if (!col0 || !col1) continue;
-
-          if (
-            i === 0 &&
-            /^(no|nomor|soal|pertanyaan|question|tanya)$/i.test(col0) &&
-            /^(soal|pertanyaan|jawaban|jawab|answer|kunci)$/i.test(col1)
-          ) {
-            continue;
-          }
-
-          let soalText = col0;
-          let jawabText = col1;
-          if (/^\d+\.?$/.test(col0) && row[2] !== undefined && String(row[2]).trim() !== "") {
-            soalText = col1;
-            jawabText = String(row[2]).trim();
-          }
-
-          rawItems.push({ soal: soalText, jawaban: jawabText, sumber: filename });
-        }
-      }
-      return rawItems;
-    }
-
     function setLoadingState(loading) {
       isCurrentlyLoading = loading;
       isDatabaseReady = !loading;
@@ -570,7 +514,7 @@
 
       if (loading) {
         loadingWarning.classList.remove("hidden");
-        searchInput.placeholder = "Harap tunggu sampai seluruh soal selesai dimuat...";
+        searchInput.placeholder = "Harap tunggu sebentar...";
         document.getElementById("statUniqueSub").className = "text-[11px] text-amber-400 mt-1 flex items-center gap-1";
         document.getElementById("statUniqueSub").innerHTML = `<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> Sedang memuat data...`;
       } else {
@@ -583,52 +527,44 @@
 
     function handleLockedClick() {
       if (!isDatabaseReady) {
-        showToast("Harap tunggu sampai proses muat soal selesai.", "warning");
+        showToast("Harap tunggu sampai database selesai dimuat.", "warning");
       }
     }
 
-    function applyDatabaseUI(activeFiles) {
+    function applyDatabaseUI(ok) {
       const dbBadgeLabel = document.getElementById("dbBadgeLabel");
       const dbDot = document.getElementById("dbDot");
       const dbPing = document.getElementById("dbPing");
 
       document.getElementById("statUnique").textContent = bankSoal.length.toLocaleString("id-ID");
-      document.getElementById("statFiles").textContent = `${activeFiles} / ${TOTAL_FILES}`;
-      document.getElementById("statDupes").textContent = duplicateRemovedCount.toLocaleString("id-ID");
+      document.getElementById("statSize").textContent = `${fileSizeMB.toFixed(2)} MB`;
 
-      if (activeFiles > 0) {
+      if (ok && bankSoal.length > 0) {
         dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-emerald-400";
         dbPing.className = "hidden";
-        dbBadgeLabel.textContent = `${activeFiles}/${TOTAL_FILES} Berkas`;
+        dbBadgeLabel.textContent = `${bankSoal.length.toLocaleString("id-ID")} Soal`;
         document.getElementById("emptyDbAlert").classList.add("hidden");
       } else {
         dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-rose-400";
         dbPing.className = "hidden";
-        dbBadgeLabel.textContent = "0 Berkas";
+        dbBadgeLabel.textContent = "Data Kosong";
         document.getElementById("emptyDbAlert").classList.remove("hidden");
       }
 
-      renderFileGrid(activeFiles);
+      renderModalDetails(ok);
     }
 
     async function checkServerSignature() {
-      let hasAnyOk = false;
-      const sigs = await Promise.all(
-        FILE_NAMES.map(async (filename) => {
-          try {
-            const res = await fetch(`./${filename}`, { method: "HEAD", cache: "no-store" });
-            if (!res.ok) return `${filename}:404`;
-            hasAnyOk = true;
-            const lm = res.headers.get("last-modified") || "";
-            const cl = res.headers.get("content-length") || "";
-            const etag = res.headers.get("etag") || "";
-            return `${filename}:${etag}:${lm}:${cl}`;
-          } catch {
-            return `${filename}:err`;
-          }
-        })
-      );
-      return hasAnyOk ? sigs.join("|") : null;
+      try {
+        const res = await fetch(`./${DATA_FILE}`, { method: "HEAD", cache: "no-store" });
+        if (!res.ok) return null;
+        const lm = res.headers.get("last-modified") || "";
+        const cl = res.headers.get("content-length") || "";
+        const etag = res.headers.get("etag") || "";
+        return `${DATA_FILE}:${etag}:${lm}:${cl}`;
+      } catch {
+        return null;
+      }
     }
 
     async function loadDatabase(forceFresh = false) {
@@ -641,10 +577,9 @@
         if (cached && Array.isArray(cached.bankSoal) && cached.bankSoal.length > 0) {
           bankSoal = cached.bankSoal;
           uniqueVocab = cached.uniqueVocab || [];
-          fileStatuses = cached.fileStatuses || [];
-          duplicateRemovedCount = cached.duplicateRemovedCount || 0;
+          fileSizeMB = cached.fileSizeMB || 0;
 
-          applyDatabaseUI(cached.activeFiles || 0);
+          applyDatabaseUI(true);
           setLoadingState(false);
           runSearch();
 
@@ -659,134 +594,75 @@
 
       setLoadingState(true);
       updateBanner.classList.add("hidden");
-      let processedCount = 0;
-      loadingProgressText.textContent = `0/${TOTAL_FILES}`;
-      dbBadgeLabel.textContent = `Memuat 0/${TOTAL_FILES}`;
+      dbBadgeLabel.textContent = "Memuat...";
       dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-amber-400";
       dbPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
 
-      const statUniqueEl = document.getElementById("statUnique");
-      const statFilesEl = document.getElementById("statFiles");
-      const statDupesEl = document.getElementById("statDupes");
-
       try {
         const v = Date.now();
-        const uniqueMap = new Map();
+        const res = await fetch(`./${DATA_FILE}?v=${v}`);
+        if (!res.ok) throw new Error("Not found");
+
+        const lm = res.headers.get("last-modified") || "";
+        const cl = res.headers.get("content-length") || "";
+        const etag = res.headers.get("etag") || "";
+        const sig = `${DATA_FILE}:${etag}:${lm}:${cl}`;
+
+        const buf = await res.arrayBuffer();
+        fileSizeMB = buf.byteLength / (1024 * 1024);
+
+        const text = new TextDecoder("utf-8").decode(buf);
+        const rawList = JSON.parse(text);
+
         const vocabSet = new Set();
-        const sigList = new Array(TOTAL_FILES);
-        fileStatuses = new Array(TOTAL_FILES);
-        let dupCount = 0;
-        let activeFiles = 0;
+        const parsed = new Array(rawList.length);
+        let validCount = 0;
 
-        // Proses dalam batch 8 file agar unduhan cepat tapi UI HP tetap responsif
-        const BATCH_SIZE = 8;
-        for (let start = 0; start < TOTAL_FILES; start += BATCH_SIZE) {
-          const end = Math.min(start + BATCH_SIZE, TOTAL_FILES);
-          const batchPromises = [];
+        for (let i = 0; i < rawList.length; i++) {
+          const row = rawList[i];
+          if (!Array.isArray(row) || row.length < 2) continue;
 
-          for (let idx = start; idx < end; idx++) {
-            const filename = FILE_NAMES[idx];
-            batchPromises.push(
-              fetch(`./${filename}?v=${v}`)
-                .then(async (res) => {
-                  if (!res.ok) throw new Error("404");
-                  const lm = res.headers.get("last-modified") || "";
-                  const cl = res.headers.get("content-length") || "";
-                  const etag = res.headers.get("etag") || "";
-                  const buf = await res.arrayBuffer();
-                  return { idx, filename, ok: true, buf, sig: `${filename}:${etag}:${lm}:${cl}` };
-                })
-                .catch(() => ({ idx, filename, ok: false, buf: null, sig: `${filename}:404` }))
-            );
+          const soal = String(row[0] ?? "").trim();
+          const jawaban = String(row[1] ?? "").trim();
+          const sumber = String(row[2] ?? DATA_FILE).trim();
+          if (!soal || !jawaban) continue;
+
+          const normSoal = normalizeText(soal);
+          const normJawab = normalizeText(jawaban);
+
+          parsed[validCount++] = {
+            soal,
+            jawaban,
+            sumber,
+            normSoal,
+            normJawab
+          };
+
+          const words = normSoal.split(" ");
+          for (let w = 0; w < words.length; w++) {
+            if (words[w].length >= 2) vocabSet.add(words[w]);
           }
-
-          const fetchedBatch = await Promise.all(batchPromises);
-
-          for (const itemRes of fetchedBatch) {
-            const { idx, filename, ok, buf, sig } = itemRes;
-            sigList[idx] = sig;
-
-            if (ok && buf) {
-              // dense: true + skip styles/NF mempercepat SheetJS hingga 3x lipat
-              const wb = XLSX.read(buf, {
-                type: "array",
-                dense: true,
-                cellStyles: false,
-                cellNF: false,
-                cellDates: false
-              });
-              const items = parseWorkbookFast(wb, filename);
-              fileStatuses[idx] = { filename, ok: true, rawCount: items.length };
-
-              if (items.length > 0) {
-                activeFiles++;
-                for (let j = 0; j < items.length; j++) {
-                  const raw = items[j];
-                  const cSoal = getCanonicalDedupText(raw.soal);
-                  const cJawab = normalizeText(raw.jawaban);
-                  if (!cSoal || !cJawab) continue;
-
-                  const dedupKey = `${cSoal}|||${cJawab}`;
-                  const existing = uniqueMap.get(dedupKey);
-
-                  if (existing) {
-                    dupCount++;
-                    if (!existing.sources.includes(raw.sumber)) {
-                      existing.sources.push(raw.sumber);
-                    }
-                  } else {
-                    const normSoal = normalizeText(raw.soal);
-                    uniqueMap.set(dedupKey, {
-                      soal: raw.soal,
-                      jawaban: raw.jawaban,
-                      sources: [raw.sumber],
-                      normSoal,
-                      normJawab: cJawab
-                    });
-
-                    const words = normSoal.split(" ");
-                    for (let w = 0; w < words.length; w++) {
-                      if (words[w].length >= 2) vocabSet.add(words[w]);
-                    }
-                  }
-                }
-              }
-            } else {
-              fileStatuses[idx] = { filename, ok: false, rawCount: 0 };
-            }
-
-            processedCount++;
-            loadingProgressText.textContent = `${processedCount}/${TOTAL_FILES}`;
-            dbBadgeLabel.textContent = `Memuat ${processedCount}/${TOTAL_FILES}`;
-            statUniqueEl.textContent = uniqueMap.size.toLocaleString("id-ID");
-            statFilesEl.textContent = `${activeFiles} / ${TOTAL_FILES}`;
-            statDupesEl.textContent = dupCount.toLocaleString("id-ID");
-
-            // Beri jeda napas untuk browser HP setelah memproses file besar
-            if (ok && buf && buf.byteLength > 500000) {
-              await yieldFrame();
-            }
-          }
-
-          await yieldFrame();
         }
 
-        bankSoal = Array.from(uniqueMap.values());
+        parsed.length = validCount;
+        bankSoal = parsed;
         uniqueVocab = Array.from(vocabSet);
-        duplicateRemovedCount = dupCount;
 
-        applyDatabaseUI(activeFiles);
+        applyDatabaseUI(true);
 
         if (bankSoal.length > 0) {
           await writeToCache({
             bankSoal,
             uniqueVocab,
-            fileStatuses,
-            duplicateRemovedCount,
-            activeFiles,
-            signature: sigList.join("|")
+            fileSizeMB,
+            signature: sig
           });
         }
+      } catch {
+        bankSoal = [];
+        uniqueVocab = [];
+        fileSizeMB = 0;
+        applyDatabaseUI(false);
       } finally {
         setLoadingState(false);
         runSearch();
@@ -797,11 +673,11 @@
       toggleStatusModal(false);
       await clearCacheDB();
       await loadDatabase(true);
-      showToast("Seluruh berkas soal berhasil diperbarui.", "success");
+      showToast("Database soal berhasil diperbarui.", "success");
     }
 
     // =========================================================================
-    // 7. ALGORITMA PENCARIAN 2-TAHAP (CEPAT UNTUK 150.000+ SOAL)
+    // 6. ALGORITMA PENCARIAN 2-TAHAP & FUZZY MATCHING
     // =========================================================================
     function levenshteinDistance(a, b, maxDist) {
       const lenA = a.length;
@@ -895,14 +771,12 @@
     }
 
     function computeRelevance(queryNorm, queryCompact, tokenPlans, allVariants, qBigrams, item) {
-      // Tahap 1: Pencocokan frasa langsung (sangat cepat)
       if (item.normSoal.includes(queryNorm)) {
         const lengthRatio = Math.min(1, queryNorm.length / Math.max(item.normSoal.length, 1));
         const score = Math.round(90 + lengthRatio * 10);
         return { score, type: score >= 96 ? "exact" : "high" };
       }
 
-      // Filter cepat: lewati item yang sama sekali tidak mengandung varian kata kunci
       let hasCandidateHit = false;
       for (let v = 0; v < allVariants.length; v++) {
         if (item.normSoal.includes(allVariants[v])) {
@@ -919,7 +793,6 @@
         return null;
       }
 
-      // Tahap 2: Hitung skor kemiripan token & bigram hanya untuk kandidat lolos
       const itemWords = item.normSoal.split(" ");
       let matchedWeight = 0;
       let totalWeight = 0;
@@ -1025,7 +898,7 @@
     }
 
     // =========================================================================
-    // 8. RENDER HASIL PENCARIAN
+    // 7. RENDER HASIL PENCARIAN
     // =========================================================================
     function escapeHtml(str) {
       return String(str ?? "")
@@ -1045,11 +918,6 @@
       if (!validTokens.length) return safe;
       const regex = new RegExp(`(${validTokens.join("|")})`, "gi");
       return safe.replace(regex, "<mark>$1</mark>");
-    }
-
-    function formatSourceBadge(sources) {
-      if (sources.length === 1) return escapeHtml(sources[0]);
-      return `${escapeHtml(sources[0])} +${sources.length - 1}`;
     }
 
     function renderMatches() {
@@ -1087,11 +955,8 @@
             <div class="flex items-center justify-between gap-2 flex-wrap">
               <div class="flex items-center gap-2">
                 ${badgeHtml}
-                <span
-                  class="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-medium bg-slate-800/90 text-slate-400 border border-white/[0.06]"
-                  title="${escapeHtml(item.sources.join(", "))}"
-                >
-                  ${formatSourceBadge(item.sources)}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-medium bg-slate-800/90 text-slate-400 border border-white/[0.06]">
+                  ${escapeHtml(item.sumber)}
                 </span>
               </div>
 
@@ -1123,18 +988,18 @@
     }
 
     // =========================================================================
-    // 9. EVENT HANDLERS & SHORTCUTS
+    // 8. EVENT HANDLERS & MODAL
     // =========================================================================
     searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(runSearch, 140);
+      debounceTimer = setTimeout(runSearch, 110);
     });
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "/" && document.activeElement !== searchInput) {
         e.preventDefault();
         if (!isDatabaseReady) {
-          showToast("Harap tunggu sampai proses muat soal selesai.", "warning");
+          showToast("Harap tunggu sampai database selesai dimuat.", "warning");
           return;
         }
         searchInput.focus();
@@ -1151,7 +1016,7 @@
 
     async function pasteFromClipboard() {
       if (!isDatabaseReady) {
-        showToast("Harap tunggu sampai proses muat soal selesai.", "warning");
+        showToast("Harap tunggu sampai database selesai dimuat.", "warning");
         return;
       }
       try {
@@ -1178,29 +1043,39 @@
       document.getElementById("statusModal").classList.toggle("hidden", !show);
     }
 
-    function renderFileGrid(activeFiles) {
-      document.getElementById("modalSummary").textContent =
-        `${activeFiles}/${TOTAL_FILES} berkas aktif • ${duplicateRemovedCount} soal ganda disaring`;
+    function renderModalDetails(ok) {
+      const container = document.getElementById("modalDetails");
+      const summary = document.getElementById("modalSummary");
 
-      document.getElementById("fileGrid").innerHTML = fileStatuses.map(st => {
-        if (st && st.ok && st.rawCount > 0) {
-          return `
-            <div class="p-2.5 rounded-xl bg-emerald-950/35 border border-emerald-500/25">
-              <div class="font-mono font-semibold text-emerald-300 flex items-center justify-between">
-                <span>${st.filename}</span>
-                <i class="fa-solid fa-circle-check text-[10px]"></i>
-              </div>
-              <div class="text-[11px] text-emerald-400/80 mt-1">${st.rawCount} baris</div>
+      if (ok && bankSoal.length > 0) {
+        summary.textContent = "Database aktif & tersimpan di cache lokal";
+        container.innerHTML = `
+          <div class="p-3.5 rounded-xl bg-emerald-950/35 border border-emerald-500/25 flex items-center justify-between">
+            <div>
+              <div class="font-mono font-bold text-emerald-300 text-sm">${DATA_FILE}</div>
+              <div class="text-emerald-400/80 mt-0.5">Gabungan bersih soal1.xlsx – soal68.xlsx</div>
             </div>
-          `;
-        }
-        return `
-          <div class="p-2.5 rounded-xl bg-slate-950/60 border border-white/[0.05] opacity-55">
-            <div class="font-mono font-medium text-slate-400">${st ? st.filename : "-"}</div>
-            <div class="text-[11px] text-slate-500 mt-1">Kosong</div>
+            <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-semibold">Aktif</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-xl bg-slate-950/60 border border-white/[0.06]">
+              <div class="text-slate-400">Total Soal Unik</div>
+              <div class="font-mono font-bold text-white text-sm mt-0.5">${bankSoal.length.toLocaleString("id-ID")}</div>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-950/60 border border-white/[0.06]">
+              <div class="text-slate-400">Ukuran Berkas</div>
+              <div class="font-mono font-bold text-white text-sm mt-0.5">${fileSizeMB.toFixed(2)} MB</div>
+            </div>
           </div>
         `;
-      }).join("");
+      } else {
+        summary.textContent = "Berkas data1.json belum ditemukan";
+        container.innerHTML = `
+          <div class="p-3.5 rounded-xl bg-rose-950/35 border border-rose-500/25 text-rose-300">
+            Pastikan <span class="font-mono font-bold">${DATA_FILE}</span> sudah diunggah ke folder utama repositori GitHub.
+          </div>
+        `;
+      }
     }
 
     let toastTimer;
@@ -1220,7 +1095,7 @@
       toastTimer = setTimeout(() => toast.classList.add("hidden"), 2500);
     }
 
-    // Jalankan pencatatan pengunjung & pemuatan soal
+    // Jalankan pencatatan pengunjung & pemuatan database
     trackVisitorSilently();
     loadDatabase();
   </script>
