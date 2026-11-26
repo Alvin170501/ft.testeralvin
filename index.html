@@ -52,7 +52,6 @@
   <!-- Top Navigation Bar -->
   <nav class="sticky top-0 z-30 bg-[#070b14]/85 backdrop-blur-xl border-b border-white/[0.07]">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-      <!-- Identitas Halaman -->
       <a href="#" onclick="clearSearch(); return false;" class="flex items-center gap-3 group">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-600/25 ring-1 ring-white/15 group-hover:scale-105 transition">
           <i class="fa-solid fa-magnifying-glass text-white text-sm"></i>
@@ -63,7 +62,6 @@
         </div>
       </a>
 
-      <!-- Status Berkas -->
       <div class="flex items-center gap-2">
         <button
           onclick="toggleStatusModal(true)"
@@ -110,7 +108,7 @@
       <div id="loadingWarning" class="max-w-3xl mx-auto mb-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-4 py-3 flex items-center gap-3 text-xs text-amber-200 shadow-sm">
         <i class="fa-solid fa-circle-notch fa-spin text-amber-400 text-base shrink-0"></i>
         <div class="leading-relaxed">
-          <span class="font-bold text-amber-300">Mohon tunggu sebentar:</span> Sedang memproses seluruh data dari <span class="font-mono text-amber-100">soal1.xlsx</span> hingga <span class="font-mono text-amber-100">soal68.xlsx</span> (<span id="loadingProgressText" class="font-mono font-bold text-amber-300">0/68</span>). Jangan tutup atau muat ulang halaman sampai proses selesai.
+          <span class="font-bold text-amber-300">Mohon tunggu sebentar:</span> Sedang memproses data <span class="font-mono text-amber-100">soal1.xlsx</span> – <span class="font-mono text-amber-100">soal68.xlsx</span> (<span id="loadingProgressText" class="font-mono font-bold text-amber-300">0/68</span>). Setelah selesai, buka berikutnya langsung instan.
         </div>
       </div>
 
@@ -174,9 +172,7 @@
   <!-- Main Workspace -->
   <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6">
 
-    <!-- =====================================================================
-         HOME DASHBOARD VIEW (Tampil saat kolom pencarian kosong)
-         ===================================================================== -->
+    <!-- HOME DASHBOARD VIEW -->
     <div id="homeDashboard" class="space-y-6">
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
@@ -237,9 +233,7 @@
       </div>
     </div>
 
-    <!-- =====================================================================
-         SEARCH RESULTS VIEW
-         ===================================================================== -->
+    <!-- SEARCH RESULTS VIEW -->
     <div id="searchResultsSection" class="hidden">
       <div class="flex items-center justify-between text-xs text-slate-400 mb-3.5 px-1">
         <span id="resultCountText" class="font-medium text-slate-300"></span>
@@ -327,7 +321,7 @@
     const FILE_NAMES = Array.from({ length: TOTAL_FILES }, (_, i) => `soal${i + 1}.xlsx`);
     const IDB_NAME = "BankSoalCache_Alvian";
     const IDB_STORE = "indexStore";
-    const IDB_KEY = "soal1_68_index_v1";
+    const IDB_KEY = "soal1_68_fast_v2";
 
     const STOPWORDS = new Set([
       "apa", "yang", "di", "ke", "dari", "pada", "adalah", "yaitu", "yakni",
@@ -360,6 +354,8 @@
     const resultsContainer = document.getElementById("resultsContainer");
     const resultCountText = document.getElementById("resultCountText");
     const loadMoreWrap = document.getElementById("loadMoreWrap");
+
+    const yieldFrame = () => new Promise(r => setTimeout(r, 0));
 
     // =========================================================================
     // 2. PENCATAT PENGUNJUNG TERSEMBUNYI KE FIREBASE (WRITE-ONLY)
@@ -437,14 +433,14 @@
     // 3. PERLINDUNGAN ANTI-REFRESH TIDAK SENGAJA
     // =========================================================================
     window.addEventListener("beforeunload", (e) => {
-      if (isCurrentlyLoading || searchInput.value.trim().length > 0 || bankSoal.length > 0) {
+      if (isCurrentlyLoading || searchInput.value.trim().length > 0) {
         e.preventDefault();
         e.returnValue = "";
       }
     });
 
     // =========================================================================
-    // 4. HELPER INDEXEDDB (MEMBUAT RELOAD JADI INSTAN < 0.3 DETIK)
+    // 4. HELPER INDEXEDDB (CACHE RINGAN & INSTAN)
     // =========================================================================
     function openCacheDB() {
       return new Promise((resolve, reject) => {
@@ -494,7 +490,7 @@
         const db = await openCacheDB();
         await new Promise((resolve) => {
           const tx = db.transaction(IDB_STORE, "readwrite");
-          tx.objectStore(IDB_STORE).delete(IDB_KEY);
+          tx.objectStore(IDB_STORE).clear();
           tx.oncomplete = () => resolve();
           tx.onerror = () => resolve();
         });
@@ -502,53 +498,36 @@
     }
 
     // =========================================================================
-    // 5. NORMALISASI, DEDUPLIKASI & VOCABULARY INDEXING
+    // 5. NORMALISASI TEKS & BIGRAM ON-DEMAND
     // =========================================================================
+    const CLEAN_REGEX = /[^a-z0-9\s]/g;
+    const SPACE_REGEX = /\s+/g;
+    const NUM_PREFIX_REGEX = /^\s*\d+[\.\)\-\:]\s*/;
+
     function normalizeText(str) {
       return String(str ?? "")
         .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, " ")
-        .replace(/\s+/g, " ")
+        .replace(CLEAN_REGEX, " ")
+        .replace(SPACE_REGEX, " ")
         .trim();
     }
 
     function getCanonicalDedupText(str) {
-      const noNum = String(str ?? "").replace(/^\s*\d+[\.\)\-\:]\s*/, "");
-      return normalizeText(noNum);
+      return normalizeText(String(str ?? "").replace(NUM_PREFIX_REGEX, ""));
     }
 
-    function getBigrams(str) {
-      const clean = str.replace(/\s+/g, " ");
+    function getBigrams(cleanStr) {
       const set = new Set();
-      for (let i = 0; i < clean.length - 1; i++) {
-        set.add(clean.slice(i, i + 2));
+      for (let i = 0; i < cleanStr.length - 1; i++) {
+        set.add(cleanStr.slice(i, i + 2));
       }
       return set;
     }
 
-    function buildIndexItem(soal, jawaban, sumber, dedupKey) {
-      const normSoal = normalizeText(soal);
-      const normJawab = normalizeText(jawaban);
-      const tokens = normSoal.split(" ").filter(Boolean);
-      const uniqueTokens = [...new Set(tokens)];
-
-      return {
-        dedupKey,
-        soal,
-        jawaban,
-        sources: [sumber],
-        normSoal,
-        compactSoal: normSoal.replace(/\s+/g, ""),
-        normJawab,
-        uniqueTokens,
-        bigrams: getBigrams(normSoal)
-      };
-    }
-
     // =========================================================================
-    // 6. PARSER EXCEL, BATCH LOADER & SINKRONISASI SERVER
+    // 6. PARSER EXCEL CEPAT (DENSE MODE, TANPA STYLE)
     // =========================================================================
-    function parseWorkbook(wb, filename) {
+    function parseWorkbookFast(wb, filename) {
       const rawItems = [];
       for (const sheetName of wb.SheetNames) {
         const sheet = wb.Sheets[sheetName];
@@ -652,48 +631,6 @@
       return hasAnyOk ? sigs.join("|") : null;
     }
 
-    async function fetchAndParseBatch(filenames, versionTag, onProgress) {
-      const results = new Array(filenames.length);
-      let cursor = 0;
-      const concurrency = 6;
-
-      async function worker() {
-        while (cursor < filenames.length) {
-          const idx = cursor++;
-          const filename = filenames[idx];
-          try {
-            const res = await fetch(`./${filename}?v=${versionTag}`);
-            if (!res.ok) throw new Error("Not found");
-            const lm = res.headers.get("last-modified") || "";
-            const cl = res.headers.get("content-length") || "";
-            const etag = res.headers.get("etag") || "";
-            const buf = await res.arrayBuffer();
-            const wb = XLSX.read(buf, { type: "array" });
-            const items = parseWorkbook(wb, filename);
-            results[idx] = {
-              filename,
-              ok: true,
-              rawCount: items.length,
-              items,
-              sig: `${filename}:${etag}:${lm}:${cl}`
-            };
-          } catch {
-            results[idx] = {
-              filename,
-              ok: false,
-              rawCount: 0,
-              items: [],
-              sig: `${filename}:404`
-            };
-          }
-          onProgress();
-        }
-      }
-
-      await Promise.all(Array.from({ length: concurrency }, () => worker()));
-      return results;
-    }
-
     async function loadDatabase(forceFresh = false) {
       const dbBadgeLabel = document.getElementById("dbBadgeLabel");
       const dbDot = document.getElementById("dbDot");
@@ -702,10 +639,7 @@
       if (!forceFresh) {
         const cached = await readFromCache();
         if (cached && Array.isArray(cached.bankSoal) && cached.bankSoal.length > 0) {
-          bankSoal = cached.bankSoal.map(item => ({
-            ...item,
-            bigrams: getBigrams(item.normSoal)
-          }));
+          bankSoal = cached.bankSoal;
           uniqueVocab = cached.uniqueVocab || [];
           fileStatuses = cached.fileStatuses || [];
           duplicateRemovedCount = cached.duplicateRemovedCount || 0;
@@ -731,45 +665,110 @@
       dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-amber-400";
       dbPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
 
+      const statUniqueEl = document.getElementById("statUnique");
+      const statFilesEl = document.getElementById("statFiles");
+      const statDupesEl = document.getElementById("statDupes");
+
       try {
         const v = Date.now();
-        const results = await fetchAndParseBatch(FILE_NAMES, v, () => {
-          processedCount++;
-          loadingProgressText.textContent = `${processedCount}/${TOTAL_FILES}`;
-          dbBadgeLabel.textContent = `Memuat ${processedCount}/${TOTAL_FILES}`;
-        });
-
         const uniqueMap = new Map();
         const vocabSet = new Set();
+        const sigList = new Array(TOTAL_FILES);
+        fileStatuses = new Array(TOTAL_FILES);
         let dupCount = 0;
         let activeFiles = 0;
-        fileStatuses = results.map(({ filename, ok, rawCount }) => ({ filename, ok, rawCount }));
 
-        for (const r of results) {
-          if (r.ok && r.rawCount > 0) {
-            activeFiles++;
-            for (const raw of r.items) {
-              const cSoal = getCanonicalDedupText(raw.soal);
-              const cJawab = normalizeText(raw.jawaban);
-              if (!cSoal || !cJawab) continue;
+        // Proses dalam batch 8 file agar unduhan cepat tapi UI HP tetap responsif
+        const BATCH_SIZE = 8;
+        for (let start = 0; start < TOTAL_FILES; start += BATCH_SIZE) {
+          const end = Math.min(start + BATCH_SIZE, TOTAL_FILES);
+          const batchPromises = [];
 
-              const dedupKey = `${cSoal}|||${cJawab}`;
-              const existing = uniqueMap.get(dedupKey);
+          for (let idx = start; idx < end; idx++) {
+            const filename = FILE_NAMES[idx];
+            batchPromises.push(
+              fetch(`./${filename}?v=${v}`)
+                .then(async (res) => {
+                  if (!res.ok) throw new Error("404");
+                  const lm = res.headers.get("last-modified") || "";
+                  const cl = res.headers.get("content-length") || "";
+                  const etag = res.headers.get("etag") || "";
+                  const buf = await res.arrayBuffer();
+                  return { idx, filename, ok: true, buf, sig: `${filename}:${etag}:${lm}:${cl}` };
+                })
+                .catch(() => ({ idx, filename, ok: false, buf: null, sig: `${filename}:404` }))
+            );
+          }
 
-              if (existing) {
-                dupCount++;
-                if (!existing.sources.includes(raw.sumber)) {
-                  existing.sources.push(raw.sumber);
-                }
-              } else {
-                const indexed = buildIndexItem(raw.soal, raw.jawaban, raw.sumber, dedupKey);
-                uniqueMap.set(dedupKey, indexed);
-                for (const tok of indexed.uniqueTokens) {
-                  if (tok.length >= 2) vocabSet.add(tok);
+          const fetchedBatch = await Promise.all(batchPromises);
+
+          for (const itemRes of fetchedBatch) {
+            const { idx, filename, ok, buf, sig } = itemRes;
+            sigList[idx] = sig;
+
+            if (ok && buf) {
+              // dense: true + skip styles/NF mempercepat SheetJS hingga 3x lipat
+              const wb = XLSX.read(buf, {
+                type: "array",
+                dense: true,
+                cellStyles: false,
+                cellNF: false,
+                cellDates: false
+              });
+              const items = parseWorkbookFast(wb, filename);
+              fileStatuses[idx] = { filename, ok: true, rawCount: items.length };
+
+              if (items.length > 0) {
+                activeFiles++;
+                for (let j = 0; j < items.length; j++) {
+                  const raw = items[j];
+                  const cSoal = getCanonicalDedupText(raw.soal);
+                  const cJawab = normalizeText(raw.jawaban);
+                  if (!cSoal || !cJawab) continue;
+
+                  const dedupKey = `${cSoal}|||${cJawab}`;
+                  const existing = uniqueMap.get(dedupKey);
+
+                  if (existing) {
+                    dupCount++;
+                    if (!existing.sources.includes(raw.sumber)) {
+                      existing.sources.push(raw.sumber);
+                    }
+                  } else {
+                    const normSoal = normalizeText(raw.soal);
+                    uniqueMap.set(dedupKey, {
+                      soal: raw.soal,
+                      jawaban: raw.jawaban,
+                      sources: [raw.sumber],
+                      normSoal,
+                      normJawab: cJawab
+                    });
+
+                    const words = normSoal.split(" ");
+                    for (let w = 0; w < words.length; w++) {
+                      if (words[w].length >= 2) vocabSet.add(words[w]);
+                    }
+                  }
                 }
               }
+            } else {
+              fileStatuses[idx] = { filename, ok: false, rawCount: 0 };
+            }
+
+            processedCount++;
+            loadingProgressText.textContent = `${processedCount}/${TOTAL_FILES}`;
+            dbBadgeLabel.textContent = `Memuat ${processedCount}/${TOTAL_FILES}`;
+            statUniqueEl.textContent = uniqueMap.size.toLocaleString("id-ID");
+            statFilesEl.textContent = `${activeFiles} / ${TOTAL_FILES}`;
+            statDupesEl.textContent = dupCount.toLocaleString("id-ID");
+
+            // Beri jeda napas untuk browser HP setelah memproses file besar
+            if (ok && buf && buf.byteLength > 500000) {
+              await yieldFrame();
             }
           }
+
+          await yieldFrame();
         }
 
         bankSoal = Array.from(uniqueMap.values());
@@ -779,14 +778,13 @@
         applyDatabaseUI(activeFiles);
 
         if (bankSoal.length > 0) {
-          const compactCacheBank = bankSoal.map(({ bigrams, ...rest }) => rest);
           await writeToCache({
-            bankSoal: compactCacheBank,
+            bankSoal,
             uniqueVocab,
             fileStatuses,
             duplicateRemovedCount,
             activeFiles,
-            signature: results.map(r => r.sig).join("|")
+            signature: sigList.join("|")
           });
         }
       } finally {
@@ -803,7 +801,7 @@
     }
 
     // =========================================================================
-    // 7. ALGORITMA FUZZY & EDIT DISTANCE
+    // 7. ALGORITMA PENCARIAN 2-TAHAP (CEPAT UNTUK 150.000+ SOAL)
     // =========================================================================
     function levenshteinDistance(a, b, maxDist) {
       const lenA = a.length;
@@ -870,13 +868,14 @@
       return 0;
     }
 
-    function buildQuerySimMaps(queryTokens, highlightSet) {
+    function buildQuerySimMaps(queryTokens, highlightSet, allVariantsSet) {
       return queryTokens.map(qWord => {
         const isStop = STOPWORDS.has(qWord);
         const weight = isStop ? 0.7 : (qWord.length >= 5 ? 1.6 : 1.1);
         const simMap = new Map();
 
         simMap.set(qWord, 1.0);
+        allVariantsSet.add(qWord);
         if (qWord.length >= 2) highlightSet.add(qWord);
 
         for (let i = 0; i < uniqueVocab.length; i++) {
@@ -884,6 +883,7 @@
           const sim = computeWordSimilarity(qWord, vWord);
           if (sim >= 0.68) {
             simMap.set(vWord, sim);
+            allVariantsSet.add(vWord);
             if (sim >= 0.75 && vWord.length >= 2) {
               highlightSet.add(vWord);
             }
@@ -894,17 +894,33 @@
       });
     }
 
-    function computeRelevance(queryNorm, queryCompact, tokenPlans, qBigrams, item) {
+    function computeRelevance(queryNorm, queryCompact, tokenPlans, allVariants, qBigrams, item) {
+      // Tahap 1: Pencocokan frasa langsung (sangat cepat)
       if (item.normSoal.includes(queryNorm)) {
         const lengthRatio = Math.min(1, queryNorm.length / Math.max(item.normSoal.length, 1));
         const score = Math.round(90 + lengthRatio * 10);
         return { score, type: score >= 96 ? "exact" : "high" };
       }
 
-      if (queryCompact.length >= 5 && item.compactSoal.includes(queryCompact)) {
-        return { score: 86, type: "high" };
+      // Filter cepat: lewati item yang sama sekali tidak mengandung varian kata kunci
+      let hasCandidateHit = false;
+      for (let v = 0; v < allVariants.length; v++) {
+        if (item.normSoal.includes(allVariants[v])) {
+          hasCandidateHit = true;
+          break;
+        }
       }
 
+      const hasAnswerHit = queryNorm.length >= 4 && item.normJawab.includes(queryNorm);
+      if (!hasCandidateHit && !hasAnswerHit) {
+        if (queryCompact.length >= 5 && item.normSoal.replace(SPACE_REGEX, "").includes(queryCompact)) {
+          return { score: 86, type: "high" };
+        }
+        return null;
+      }
+
+      // Tahap 2: Hitung skor kemiripan token & bigram hanya untuk kandidat lolos
+      const itemWords = item.normSoal.split(" ");
       let matchedWeight = 0;
       let totalWeight = 0;
       let strongTokenHits = 0;
@@ -914,8 +930,8 @@
         totalWeight += plan.weight;
 
         let bestSim = 0;
-        for (let t = 0; t < item.uniqueTokens.length; t++) {
-          const s = plan.simMap.get(item.uniqueTokens[t]);
+        for (let t = 0; t < itemWords.length; t++) {
+          const s = plan.simMap.get(itemWords[t]);
           if (s && s > bestSim) {
             bestSim = s;
             if (bestSim === 1.0) break;
@@ -930,21 +946,18 @@
 
       const tokenScore = totalWeight > 0 ? (matchedWeight / totalWeight) : 0;
 
+      const itemBigrams = getBigrams(item.normSoal);
       let bigramOverlap = 0;
-      if (qBigrams.size > 0 && item.bigrams.size > 0) {
+      if (qBigrams.size > 0 && itemBigrams.size > 0) {
         for (const bg of qBigrams) {
-          if (item.bigrams.has(bg)) bigramOverlap++;
+          if (itemBigrams.has(bg)) bigramOverlap++;
         }
       }
-      const diceScore = (qBigrams.size + item.bigrams.size) > 0
-        ? (2 * bigramOverlap) / (qBigrams.size + item.bigrams.size)
+      const diceScore = (qBigrams.size + itemBigrams.size) > 0
+        ? (2 * bigramOverlap) / (qBigrams.size + itemBigrams.size)
         : 0;
 
-      let answerBonus = 0;
-      if (queryNorm.length >= 4 && item.normJawab.includes(queryNorm)) {
-        answerBonus = 0.28;
-      }
-
+      const answerBonus = hasAnswerHit ? 0.28 : 0;
       const combined = Math.min(0.95, tokenScore * 0.78 + diceScore * 0.22 + answerBonus);
       const percent = Math.round(combined * 100);
 
@@ -979,7 +992,7 @@
       const queryNorm = normalizeText(raw);
       if (!queryNorm) return;
 
-      const queryCompact = queryNorm.replace(/\s+/g, "");
+      const queryCompact = queryNorm.replace(SPACE_REGEX, "");
       const rawTokens = queryNorm.split(" ").filter(Boolean);
 
       const coreTokens = rawTokens.filter(t => t.length > 1 && !STOPWORDS.has(t));
@@ -988,19 +1001,17 @@
         : rawTokens;
 
       const highlightSet = new Set();
-      const tokenPlans = buildQuerySimMaps(effectiveTokens, highlightSet);
+      const allVariantsSet = new Set();
+      const tokenPlans = buildQuerySimMaps(effectiveTokens, highlightSet, allVariantsSet);
+      const allVariants = Array.from(allVariantsSet);
       const qBigrams = getBigrams(queryNorm);
 
       const matches = [];
-      const seenKeys = new Set();
 
       for (let i = 0; i < bankSoal.length; i++) {
         const item = bankSoal[i];
-        if (seenKeys.has(item.dedupKey)) continue;
-
-        const res = computeRelevance(queryNorm, queryCompact, tokenPlans, qBigrams, item);
+        const res = computeRelevance(queryNorm, queryCompact, tokenPlans, allVariants, qBigrams, item);
         if (res) {
-          seenKeys.add(item.dedupKey);
           matches.push({ item, score: res.score, type: res.type });
         }
       }
@@ -1116,7 +1127,7 @@
     // =========================================================================
     searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(runSearch, 120);
+      debounceTimer = setTimeout(runSearch, 140);
     });
 
     document.addEventListener("keydown", (e) => {
@@ -1172,7 +1183,7 @@
         `${activeFiles}/${TOTAL_FILES} berkas aktif • ${duplicateRemovedCount} soal ganda disaring`;
 
       document.getElementById("fileGrid").innerHTML = fileStatuses.map(st => {
-        if (st.ok && st.rawCount > 0) {
+        if (st && st.ok && st.rawCount > 0) {
           return `
             <div class="p-2.5 rounded-xl bg-emerald-950/35 border border-emerald-500/25">
               <div class="font-mono font-semibold text-emerald-300 flex items-center justify-between">
@@ -1185,7 +1196,7 @@
         }
         return `
           <div class="p-2.5 rounded-xl bg-slate-950/60 border border-white/[0.05] opacity-55">
-            <div class="font-mono font-medium text-slate-400">${st.filename}</div>
+            <div class="font-mono font-medium text-slate-400">${st ? st.filename : "-"}</div>
             <div class="text-[11px] text-slate-500 mt-1">Kosong</div>
           </div>
         `;
