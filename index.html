@@ -68,7 +68,7 @@
         <button
           onclick="toggleStatusModal(true)"
           class="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-white/[0.08] hover:border-white/[0.15] text-xs font-medium text-slate-300 flex items-center gap-2 transition shadow-sm"
-          title="Lihat status berkas soal1.xlsx - soal16.xlsx"
+          title="Lihat status berkas soal1.xlsx - soal68.xlsx"
         >
           <span class="relative flex h-2 w-2">
             <span id="dbPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -110,7 +110,7 @@
       <div id="loadingWarning" class="max-w-3xl mx-auto mb-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-4 py-3 flex items-center gap-3 text-xs text-amber-200 shadow-sm">
         <i class="fa-solid fa-circle-notch fa-spin text-amber-400 text-base shrink-0"></i>
         <div class="leading-relaxed">
-          <span class="font-bold text-amber-300">Mohon tunggu sebentar:</span> Sedang memproses seluruh data dari <span class="font-mono text-amber-100">soal1.xlsx</span> hingga <span class="font-mono text-amber-100">soal16.xlsx</span>. Jangan tutup atau muat ulang halaman sampai proses selesai.
+          <span class="font-bold text-amber-300">Mohon tunggu sebentar:</span> Sedang memproses seluruh data dari <span class="font-mono text-amber-100">soal1.xlsx</span> hingga <span class="font-mono text-amber-100">soal68.xlsx</span> (<span id="loadingProgressText" class="font-mono font-bold text-amber-300">0/68</span>). Jangan tutup atau muat ulang halaman sampai proses selesai.
         </div>
       </div>
 
@@ -195,8 +195,8 @@
         <div class="bg-slate-900/75 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex items-start justify-between">
           <div>
             <p class="text-xs font-medium text-slate-400">Berkas Soal Aktif</p>
-            <p id="statFiles" class="text-2xl font-extrabold text-white mt-1 font-mono tracking-tight">0 / 16</p>
-            <p class="text-[11px] text-slate-400 mt-1">Dari <span class="font-mono text-slate-300">soal1–soal16.xlsx</span></p>
+            <p id="statFiles" class="text-2xl font-extrabold text-white mt-1 font-mono tracking-tight">0 / 68</p>
+            <p class="text-[11px] text-slate-400 mt-1">Dari <span class="font-mono text-slate-300">soal1–soal68.xlsx</span></p>
           </div>
           <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
             <i class="fa-solid fa-file-excel"></i>
@@ -222,7 +222,7 @@
             <i class="fa-solid fa-triangle-exclamation"></i>
           </div>
           <div class="space-y-1">
-            <h3 class="text-sm font-bold text-rose-200">Berkas soal1.xlsx – soal16.xlsx Tidak Ditemukan</h3>
+            <h3 class="text-sm font-bold text-rose-200">Berkas soal1.xlsx – soal68.xlsx Tidak Ditemukan</h3>
             <p class="text-xs text-rose-300/80 leading-relaxed">
               Pastikan berkas Excel sudah diunggah sejajar dengan <code class="font-mono bg-black/30 px-1.5 py-0.5 rounded">index.html</code> pada repositori GitHub dan diakses melalui tautan GitHub Pages.
             </p>
@@ -289,7 +289,7 @@
             <i class="fa-solid fa-folder-open text-indigo-400"></i>
             Rincian Berkas Soal
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Status pemuatan <span class="font-mono">soal1.xlsx</span> sampai <span class="font-mono">soal16.xlsx</span></p>
+          <p class="text-xs text-slate-400 mt-0.5">Status pemuatan <span class="font-mono">soal1.xlsx</span> sampai <span class="font-mono">soal68.xlsx</span></p>
         </div>
         <button onclick="toggleStatusModal(false)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
           <i class="fa-solid fa-xmark"></i>
@@ -319,15 +319,15 @@
 
   <script>
     // =========================================================================
-    // 1. KONFIGURASI FIREBASE & BERKAS SOAL
+    // 1. KONFIGURASI FIREBASE & BERKAS SOAL (soal1.xlsx - soal68.xlsx)
     // =========================================================================
     const FIREBASE_DB_URL = "https://trafficview-c2caf-default-rtdb.asia-southeast1.firebasedatabase.app";
 
-    const TOTAL_FILES = 16;
+    const TOTAL_FILES = 68;
     const FILE_NAMES = Array.from({ length: TOTAL_FILES }, (_, i) => `soal${i + 1}.xlsx`);
     const IDB_NAME = "BankSoalCache_Alvian";
     const IDB_STORE = "indexStore";
-    const IDB_KEY = "soal1_16_index_v1";
+    const IDB_KEY = "soal1_68_index_v1";
 
     const STOPWORDS = new Set([
       "apa", "yang", "di", "ke", "dari", "pada", "adalah", "yaitu", "yakni",
@@ -352,6 +352,7 @@
     const clearBtn = document.getElementById("clearBtn");
     const pasteBtn = document.getElementById("pasteBtn");
     const loadingWarning = document.getElementById("loadingWarning");
+    const loadingProgressText = document.getElementById("loadingProgressText");
     const updateBanner = document.getElementById("updateBanner");
     const heroHeader = document.getElementById("heroHeader");
     const homeDashboard = document.getElementById("homeDashboard");
@@ -443,7 +444,7 @@
     });
 
     // =========================================================================
-    // 4. HELPER INDEXEDDB (MEMBUAT RELOAD JADI INSTAN < 0.2 DETIK)
+    // 4. HELPER INDEXEDDB (MEMBUAT RELOAD JADI INSTAN < 0.3 DETIK)
     // =========================================================================
     function openCacheDB() {
       return new Promise((resolve, reject) => {
@@ -545,7 +546,7 @@
     }
 
     // =========================================================================
-    // 6. PARSER EXCEL, CACHE LOADER & SINKRONISASI SERVER
+    // 6. PARSER EXCEL, BATCH LOADER & SINKRONISASI SERVER
     // =========================================================================
     function parseWorkbook(wb, filename) {
       const rawItems = [];
@@ -651,6 +652,48 @@
       return hasAnyOk ? sigs.join("|") : null;
     }
 
+    async function fetchAndParseBatch(filenames, versionTag, onProgress) {
+      const results = new Array(filenames.length);
+      let cursor = 0;
+      const concurrency = 6;
+
+      async function worker() {
+        while (cursor < filenames.length) {
+          const idx = cursor++;
+          const filename = filenames[idx];
+          try {
+            const res = await fetch(`./${filename}?v=${versionTag}`);
+            if (!res.ok) throw new Error("Not found");
+            const lm = res.headers.get("last-modified") || "";
+            const cl = res.headers.get("content-length") || "";
+            const etag = res.headers.get("etag") || "";
+            const buf = await res.arrayBuffer();
+            const wb = XLSX.read(buf, { type: "array" });
+            const items = parseWorkbook(wb, filename);
+            results[idx] = {
+              filename,
+              ok: true,
+              rawCount: items.length,
+              items,
+              sig: `${filename}:${etag}:${lm}:${cl}`
+            };
+          } catch {
+            results[idx] = {
+              filename,
+              ok: false,
+              rawCount: 0,
+              items: [],
+              sig: `${filename}:404`
+            };
+          }
+          onProgress();
+        }
+      }
+
+      await Promise.all(Array.from({ length: concurrency }, () => worker()));
+      return results;
+    }
+
     async function loadDatabase(forceFresh = false) {
       const dbBadgeLabel = document.getElementById("dbBadgeLabel");
       const dbDot = document.getElementById("dbDot");
@@ -661,7 +704,7 @@
         if (cached && Array.isArray(cached.bankSoal) && cached.bankSoal.length > 0) {
           bankSoal = cached.bankSoal.map(item => ({
             ...item,
-            bigrams: new Set(item.bigrams)
+            bigrams: getBigrams(item.normSoal)
           }));
           uniqueVocab = cached.uniqueVocab || [];
           fileStatuses = cached.fileStatuses || [];
@@ -682,35 +725,19 @@
 
       setLoadingState(true);
       updateBanner.classList.add("hidden");
-      dbBadgeLabel.textContent = "Memuat...";
+      let processedCount = 0;
+      loadingProgressText.textContent = `0/${TOTAL_FILES}`;
+      dbBadgeLabel.textContent = `Memuat 0/${TOTAL_FILES}`;
       dbDot.className = "relative inline-flex rounded-full h-2 w-2 bg-amber-400";
       dbPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
 
       try {
         const v = Date.now();
-        const results = await Promise.all(
-          FILE_NAMES.map(async (filename) => {
-            try {
-              const res = await fetch(`./${filename}?v=${v}`);
-              if (!res.ok) throw new Error("Not found");
-              const lm = res.headers.get("last-modified") || "";
-              const cl = res.headers.get("content-length") || "";
-              const etag = res.headers.get("etag") || "";
-              const buf = await res.arrayBuffer();
-              const wb = XLSX.read(buf, { type: "array" });
-              const items = parseWorkbook(wb, filename);
-              return {
-                filename,
-                ok: true,
-                rawCount: items.length,
-                items,
-                sig: `${filename}:${etag}:${lm}:${cl}`
-              };
-            } catch {
-              return { filename, ok: false, rawCount: 0, items: [], sig: `${filename}:404` };
-            }
-          })
-        );
+        const results = await fetchAndParseBatch(FILE_NAMES, v, () => {
+          processedCount++;
+          loadingProgressText.textContent = `${processedCount}/${TOTAL_FILES}`;
+          dbBadgeLabel.textContent = `Memuat ${processedCount}/${TOTAL_FILES}`;
+        });
 
         const uniqueMap = new Map();
         const vocabSet = new Set();
@@ -752,12 +779,9 @@
         applyDatabaseUI(activeFiles);
 
         if (bankSoal.length > 0) {
-          const serializableBank = bankSoal.map(item => ({
-            ...item,
-            bigrams: Array.from(item.bigrams)
-          }));
+          const compactCacheBank = bankSoal.map(({ bigrams, ...rest }) => rest);
           await writeToCache({
-            bankSoal: serializableBank,
+            bankSoal: compactCacheBank,
             uniqueVocab,
             fileStatuses,
             duplicateRemovedCount,
