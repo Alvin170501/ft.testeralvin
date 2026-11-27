@@ -49,7 +49,7 @@
 <body class="text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
 
   <!-- ===================================================================== -->
-  <!-- LAYAR KUNCI AKSES (ACCESS GATE)                                       -->
+  <!-- LAYAR KUNCI AKSES (1 NIK = 1 PERANGKAT)                               -->
   <!-- ===================================================================== -->
   <div id="lockScreen" class="fixed inset-0 z-50 bg-[#070b14] flex items-center justify-center p-4 overflow-y-auto">
     <div class="max-w-md w-full bg-slate-900/95 border border-white/[0.1] rounded-3xl p-6 sm:p-7 shadow-2xl shadow-black/60 space-y-5 relative overflow-hidden">
@@ -67,8 +67,8 @@
         </button>
 
         <span class="px-3 py-1 rounded-full bg-slate-800/90 border border-white/[0.08] text-[11px] font-mono text-slate-300 flex items-center gap-1.5">
-          <i class="fa-solid fa-shield-halved text-indigo-400 text-[10px]"></i>
-          <span>Akses Terbatas</span>
+          <i class="fa-solid fa-mobile-screen-button text-indigo-400 text-[10px]"></i>
+          <span>1 NIK &bull; 1 Perangkat</span>
         </span>
       </div>
 
@@ -77,7 +77,7 @@
           Akses Web Terkunci
         </h2>
         <p id="lockDesc" class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Halaman Bank Soal ini dikelola oleh <span class="text-slate-200 font-semibold">M. Alvian</span>. Isi <strong class="text-slate-200">Nama</strong> dan <strong class="text-slate-200">NIK</strong> untuk meminta akses, atau langsung masuk memakai NIK jika sudah diizinkan.
+          Halaman Bank Soal ini dikelola oleh <span class="text-slate-200 font-semibold">M. Alvian</span>. Isi <strong class="text-slate-200">Nama</strong> dan <strong class="text-slate-200">NIK</strong> untuk meminta akses (maksimal 1 HP per NIK).
         </p>
       </div>
 
@@ -145,7 +145,7 @@
         </button>
       </div>
 
-      <!-- FORM 2: LANGSUNG MASUK PAKAI NIK (UNTUK YANG SUDAH DIIZINKAN) -->
+      <!-- FORM 2: LANGSUNG MASUK PAKAI NIK -->
       <div id="nikLoginWrap" class="hidden space-y-3.5">
         <div>
           <label for="directNikInput" class="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -184,7 +184,7 @@
             <span>Menunggu Persetujuan Admin</span>
           </div>
           <p class="text-xs text-amber-200/85 leading-relaxed">
-            Permintaan atas nama <strong id="pendingUserName" class="text-white">---</strong> (NIK: <strong id="pendingUserNik" class="font-mono text-amber-200">---</strong>) sudah terkirim. Halaman ini akan terbuka otomatis begitu diizinkan.
+            Permintaan atas nama <strong id="pendingUserName" class="text-white">---</strong> (NIK: <strong id="pendingUserNik" class="font-mono text-amber-200">---</strong>) sudah terkirim dari HP ini. Halaman akan terbuka otomatis begitu diizinkan.
           </p>
         </div>
 
@@ -196,6 +196,38 @@
           >
             <i class="fa-solid fa-rotate"></i>
             <span>Cek Status Sekarang</span>
+          </button>
+          <button
+            type="button"
+            onclick="resetRequestForm()"
+            class="py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-white/[0.08] text-xs font-medium text-slate-400 transition"
+          >
+            Ganti NIK
+          </button>
+        </div>
+      </div>
+
+      <!-- STATUS: TERKUNCI DI PERANGKAT LAIN (1 NIK = 1 HP) -->
+      <div id="deviceLockedWrap" class="hidden space-y-4">
+        <div class="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 space-y-2">
+          <div class="flex items-center gap-2 text-orange-300 text-xs font-bold">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            <span>NIK Sudah Terikat di HP Lain</span>
+          </div>
+          <p class="text-xs text-orange-200/85 leading-relaxed">
+            NIK <strong id="deviceLockedNik" class="font-mono text-white">---</strong> sudah terdaftar aktif di perangkat <strong id="deviceLockedHolder" class="text-orange-200">perangkat lain</strong>. Satu NIK dibatasi hanya untuk <strong>1 HP</strong>.
+          </p>
+          <p class="text-[11px] text-orange-300/75 leading-relaxed">
+            Jika kamu baru ganti HP atau menghapus data browser, minta M. Alvian untuk menekan <strong>Reset HP</strong> pada NIK kamu.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick="checkNikAccessStatus(currentPendingNik, false)"
+            class="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/[0.08] text-xs font-semibold text-slate-200 transition"
+          >
+            Coba Masuk Lagi
           </button>
           <button
             type="button"
@@ -529,7 +561,7 @@
             <i class="fa-solid fa-user-shield text-indigo-400"></i>
             Panel Kontrol Akses
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Kelola permintaan izin dan daftar NIK terdaftar</p>
+          <p class="text-xs text-slate-400 mt-0.5">Kelola izin akses & kunci perangkat (1 NIK = 1 HP)</p>
         </div>
         <div class="flex items-center gap-1.5">
           <button
@@ -682,6 +714,7 @@
     const IDB_STORE = "indexStore";
     const IDB_KEY = "data1_json_index_v1";
     const IDB_AUTH_KEY = "auth_nik_state_v1";
+    const IDB_DEVICE_KEY = "device_fingerprint_id_v1";
 
     const STOPWORDS = new Set([
       "apa", "yang", "di", "ke", "dari", "pada", "adalah", "yaitu", "yakni",
@@ -695,9 +728,11 @@
     let isDatabaseReady = false;
     let isCurrentlyLoading = false;
     let accessPollTimer = null;
+    let activeWatchTimer = null;
     let secretTapCount = 0;
     let secretTapTimer = null;
     let currentPendingNik = "";
+    let currentDeviceId = "";
 
     let adminAllUsers = [];
     let adminFilterStatus = "all";
@@ -724,7 +759,51 @@
     const loadMoreWrap = document.getElementById("loadMoreWrap");
 
     // =========================================================================
-    // 2. SISTEM KUNCI AKSES BERBASIS NAMA & NIK (FIREBASE)
+    // 2. IDENTITAS PERANGKAT UNIK (1 NIK = 1 HP)
+    // =========================================================================
+    async function getOrCreateDeviceId() {
+      if (currentDeviceId) return currentDeviceId;
+
+      let id = localStorage.getItem("sv_device_id_v1") || "";
+
+      if (!id) {
+        try {
+          const db = await openCacheDB();
+          id = await new Promise((resolve) => {
+            const tx = db.transaction(IDB_STORE, "readonly");
+            const req = tx.objectStore(IDB_STORE).get(IDB_DEVICE_KEY);
+            req.onsuccess = () => resolve(req.result || "");
+            req.onerror = () => resolve("");
+          });
+        } catch {}
+      }
+
+      if (!id) {
+        const rand = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 6);
+        id = `dev_${Date.now().toString(36)}_${rand}`;
+      }
+
+      currentDeviceId = id;
+      try {
+        localStorage.setItem("sv_device_id_v1", id);
+        const db = await openCacheDB();
+        await new Promise((resolve) => {
+          const tx = db.transaction(IDB_STORE, "readwrite");
+          tx.objectStore(IDB_STORE).put(id, IDB_DEVICE_KEY);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        });
+      } catch {}
+
+      return id;
+    }
+
+    function getFullDeviceLabel() {
+      return `${getDeviceSummary()} (${window.screen.width}x${window.screen.height})`;
+    }
+
+    // =========================================================================
+    // 3. SISTEM KUNCI AKSES BERBASIS NAMA, NIK & PENGUNCIAN PERANGKAT
     // =========================================================================
     let savedName = localStorage.getItem("sv_req_name_v1") || "";
     let savedNik = localStorage.getItem("sv_req_nik_v1") || "";
@@ -813,13 +892,14 @@
       }
     }
 
-    function showLockState(state, userName = "", userNik = "") {
+    function showLockState(state, userName = "", userNik = "", extraHolder = "") {
       const lockScreen = document.getElementById("lockScreen");
       const gateTabs = document.getElementById("gateTabs");
       const reqWrap = document.getElementById("requestFormWrap");
       const logWrap = document.getElementById("nikLoginWrap");
       const pendWrap = document.getElementById("pendingStatusWrap");
       const blockWrap = document.getElementById("blockedStatusWrap");
+      const devLockWrap = document.getElementById("deviceLockedWrap");
       const lockTitle = document.getElementById("lockTitle");
       const lockIcon = document.getElementById("lockHeaderIcon");
 
@@ -831,6 +911,7 @@
       logWrap.classList.add("hidden");
       pendWrap.classList.add("hidden");
       blockWrap.classList.add("hidden");
+      devLockWrap.classList.add("hidden");
 
       if (state === "pending") {
         lockTitle.textContent = "Menunggu Izin Akses";
@@ -838,6 +919,12 @@
         document.getElementById("pendingUserName").textContent = userName || savedName || "Pengguna";
         document.getElementById("pendingUserNik").textContent = userNik || savedNik || "-";
         pendWrap.classList.remove("hidden");
+      } else if (state === "device_locked") {
+        lockTitle.textContent = "Terkunci di HP Lain";
+        lockIcon.className = "fa-solid fa-mobile-screen-button text-orange-400 text-lg";
+        document.getElementById("deviceLockedNik").textContent = userNik || savedNik || "-";
+        document.getElementById("deviceLockedHolder").textContent = extraHolder || "perangkat lain";
+        devLockWrap.classList.remove("hidden");
       } else if (state === "blocked") {
         lockTitle.textContent = "Akses Dinonaktifkan";
         lockIcon.className = "fa-solid fa-ban text-rose-400 text-lg";
@@ -851,6 +938,16 @@
       }
     }
 
+    function startActiveSessionWatch(nik) {
+      clearInterval(activeWatchTimer);
+      if (!nik || nik === "ADMIN") return;
+      activeWatchTimer = setInterval(() => {
+        if (isAccessApproved && document.visibilityState === "visible") {
+          checkNikAccessStatus(nik, true);
+        }
+      }, 15000);
+    }
+
     function unlockApplication(userName = "", userNik = "") {
       saveAuthBackup(true, userName, userNik, false);
 
@@ -858,13 +955,15 @@
       isAccessApproved = true;
       clearInterval(accessPollTimer);
       document.getElementById("lockScreen").classList.add("hidden");
+      startActiveSessionWatch(userNik);
       trackVisitorSilently();
       loadDatabase();
     }
 
-    function lockApplicationAgain(state = "blocked", nik = "") {
+    function lockApplicationAgain(state = "blocked", nik = "", extraHolder = "") {
       isAccessApproved = false;
       isDatabaseReady = false;
+      clearInterval(activeWatchTimer);
       saveAuthBackup(false, savedName, nik || savedNik, false);
       bankSoal = [];
       uniqueVocab = [];
@@ -873,7 +972,7 @@
       pasteBtn.disabled = true;
       document.getElementById("dbBadgeLabel").textContent = "Terkunci";
       document.getElementById("dbDot").className = "relative inline-flex rounded-full h-2 w-2 bg-rose-400";
-      showLockState(state, savedName, nik || savedNik);
+      showLockState(state, savedName, nik || savedNik, extraHolder);
     }
 
     async function fetchNikRecord(nik) {
@@ -885,6 +984,58 @@
       const appData = appRes.ok ? await appRes.json() : null;
       const reqData = reqRes.ok ? await reqRes.json() : null;
       return { appData, reqData, readDenied: appRes.status === 401 || reqRes.status === 401 };
+    }
+
+    async function claimDeviceBinding(nik, nama, myDeviceId) {
+      const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
+      const devLabel = getFullDeviceLabel();
+      const nowWIB = formatWaktuWIB();
+      const ts = Date.now();
+
+      await Promise.all([
+        fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nik,
+            nama,
+            status: "approved",
+            bound_device_id: myDeviceId,
+            bound_device_name: devLabel,
+            bound_time: nowWIB,
+            timestamp: ts
+          })
+        }),
+        fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nik,
+            nama,
+            status: "approved",
+            device_id: myDeviceId,
+            bound_device_id: myDeviceId,
+            bound_device_name: devLabel,
+            perangkat: devLabel,
+            waktu: nowWIB,
+            timestamp: ts
+          })
+        })
+      ]);
+
+      // Verifikasi ulang singkat untuk mencegah 2 HP mengklaim di milidetik yang sama
+      await new Promise(r => setTimeout(r, 320));
+      const verify = await fetchNikRecord(nik);
+      const winnerId =
+        (verify.appData && verify.appData.bound_device_id) ||
+        (verify.reqData && verify.reqData.bound_device_id) ||
+        "";
+      const winnerName =
+        (verify.appData && verify.appData.bound_device_name) ||
+        (verify.reqData && verify.reqData.bound_device_name) ||
+        "perangkat lain";
+
+      return { ok: winnerId === myDeviceId, winnerName };
     }
 
     async function submitAccessRequest() {
@@ -907,40 +1058,17 @@
 
       const btn = document.getElementById("submitRequestBtn");
       btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-xs"></i><span>Memeriksa...</span>`;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-xs"></i><span>Memeriksa perangkat...</span>`;
 
       const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
       try {
+        const myDeviceId = await getOrCreateDeviceId();
+        const devLabel = getFullDeviceLabel();
         const { appData, reqData } = await fetchNikRecord(nik);
 
         const isBlocked =
           (appData && appData.status === "blocked") ||
           (reqData && reqData.status === "blocked");
-
-        const isApproved =
-          !isBlocked && (
-            (appData && appData.status === "approved") ||
-            (reqData && reqData.status === "approved")
-          );
-
-        if (isApproved) {
-          const finalName = nama || (appData && appData.nama) || (reqData && reqData.nama) || "Pengguna";
-          await fetch(`${cleanUrl}/access_requests/${nik}.json`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              nik,
-              nama: finalName,
-              status: "approved",
-              perangkat: getDeviceSummary(),
-              waktu: formatWaktuWIB(),
-              timestamp: Date.now()
-            })
-          });
-          unlockApplication(finalName, nik);
-          showToast("NIK sudah diizinkan. Langsung masuk!", "success");
-          return;
-        }
 
         if (isBlocked) {
           await saveAuthBackup(false, nama, nik, false);
@@ -949,11 +1077,60 @@
           return;
         }
 
+        const isApproved =
+          (appData && appData.status === "approved") ||
+          (reqData && reqData.status === "approved");
+
+        const boundDeviceId =
+          (appData && appData.bound_device_id) ||
+          (reqData && reqData.bound_device_id) ||
+          "";
+        const boundDeviceName =
+          (appData && appData.bound_device_name) ||
+          (reqData && reqData.bound_device_name) ||
+          (reqData && reqData.perangkat) ||
+          "perangkat lain";
+
+        if (isApproved) {
+          const finalName = nama || (appData && appData.nama) || (reqData && reqData.nama) || "Pengguna";
+
+          // Jika sudah terikat ke HP lain, langsung tolak!
+          if (boundDeviceId && boundDeviceId !== myDeviceId) {
+            await saveAuthBackup(false, finalName, nik, false);
+            showLockState("device_locked", finalName, nik, boundDeviceName);
+            showToast("NIK ini sudah terikat di HP lain.", "warning");
+            return;
+          }
+
+          // Jika belum terikat HP mana pun, ikat ke HP ini sekarang
+          if (!boundDeviceId) {
+            const claim = await claimDeviceBinding(nik, finalName, myDeviceId);
+            if (!claim.ok) {
+              showLockState("device_locked", finalName, nik, claim.winnerName);
+              showToast("NIK sudah diklaim oleh perangkat lain.", "warning");
+              return;
+            }
+          }
+
+          unlockApplication(finalName, nik);
+          showToast("NIK terverifikasi untuk HP ini. Langsung masuk!", "success");
+          return;
+        }
+
+        // Jika sudah ada permintaan pending dari HP lain untuk NIK yang sama
+        const reqDeviceId = (reqData && reqData.device_id) || "";
+        if (reqData && reqData.status === "pending" && reqDeviceId && reqDeviceId !== myDeviceId) {
+          showLockState("device_locked", nama, nik, reqData.perangkat || "perangkat lain");
+          showToast("NIK ini sedang diajukan dari HP lain.", "warning");
+          return;
+        }
+
         const payload = {
           nik,
           nama,
           status: "pending",
-          perangkat: getDeviceSummary(),
+          device_id: myDeviceId,
+          perangkat: devLabel,
           waktu: formatWaktuWIB(),
           timestamp: Date.now()
         };
@@ -992,9 +1169,10 @@
 
       const btn = document.getElementById("directLoginBtn");
       btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-xs"></i><span>Memverifikasi NIK...</span>`;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-xs"></i><span>Memverifikasi HP...</span>`;
 
       try {
+        const myDeviceId = await getOrCreateDeviceId();
         const { appData, reqData, readDenied } = await fetchNikRecord(nik);
         if (readDenied) {
           showToast("Rules Firebase masih menolak baca data (401).", "warning");
@@ -1013,8 +1191,35 @@
 
         const status = (appData && appData.status) || (reqData && reqData.status) || "pending";
         const nama = record.nama || savedName || "Pengguna";
+        const boundDeviceId =
+          (appData && appData.bound_device_id) ||
+          (reqData && reqData.bound_device_id) ||
+          "";
+        const boundDeviceName =
+          (appData && appData.bound_device_name) ||
+          (reqData && reqData.bound_device_name) ||
+          (reqData && reqData.perangkat) ||
+          "perangkat lain";
 
         if (status === "approved") {
+          // Cek apakah sudah dikunci ke HP lain
+          if (boundDeviceId && boundDeviceId !== myDeviceId) {
+            await saveAuthBackup(false, nama, nik, false);
+            showLockState("device_locked", nama, nik, boundDeviceName);
+            showToast("NIK ini sudah terikat di HP lain.", "warning");
+            return;
+          }
+
+          // Jika NIK baru didaftarkan admin (belum terikat HP), otomatis ikat ke HP pertama ini
+          if (!boundDeviceId) {
+            const claim = await claimDeviceBinding(nik, nama, myDeviceId);
+            if (!claim.ok) {
+              showLockState("device_locked", nama, nik, claim.winnerName);
+              showToast("NIK sudah diklaim oleh perangkat lain.", "warning");
+              return;
+            }
+          }
+
           unlockApplication(nama, nik);
           showToast(`Selamat datang, ${nama}!`, "success");
         } else if (status === "blocked") {
@@ -1022,6 +1227,13 @@
           showLockState("blocked", nama, nik);
           showToast("Akses untuk NIK ini dinonaktifkan.", "warning");
         } else {
+          const reqDeviceId = (reqData && reqData.device_id) || "";
+          if (reqDeviceId && reqDeviceId !== myDeviceId) {
+            showLockState("device_locked", nama, nik, reqData.perangkat || "perangkat lain");
+            showToast("NIK ini sedang menunggu izin di HP lain.", "warning");
+            return;
+          }
+
           await saveAuthBackup(false, nama, nik, true);
           showLockState("pending", nama, nik);
           startAccessPolling(nik);
@@ -1038,6 +1250,7 @@
     async function checkNikAccessStatus(nik, silent = true) {
       if (!nik || nik === "ADMIN") return;
       try {
+        const myDeviceId = await getOrCreateDeviceId();
         const { appData, reqData, readDenied } = await fetchNikRecord(nik);
         if (readDenied) {
           if (!silent) showToast("Rules Firebase belum mengizinkan baca data (401).", "warning");
@@ -1056,8 +1269,38 @@
 
         const status = (appData && appData.status) || (reqData && reqData.status) || "pending";
         const nama = (reqData && reqData.nama) || (appData && appData.nama) || savedName || "Pengguna";
+        const boundDeviceId =
+          (appData && appData.bound_device_id) ||
+          (reqData && reqData.bound_device_id) ||
+          "";
+        const boundDeviceName =
+          (appData && appData.bound_device_name) ||
+          (reqData && reqData.bound_device_name) ||
+          (reqData && reqData.perangkat) ||
+          "perangkat lain";
 
         if (status === "approved") {
+          // Jika terikat ke HP lain, blokir dan kunci kembali jika sedang terbuka
+          if (boundDeviceId && boundDeviceId !== myDeviceId) {
+            if (isAccessApproved) {
+              lockApplicationAgain("device_locked", nik, boundDeviceName);
+            } else {
+              await saveAuthBackup(false, nama, nik, false);
+              showLockState("device_locked", nama, nik, boundDeviceName);
+            }
+            if (!silent) showToast("NIK ini sudah terikat di HP lain.", "warning");
+            return;
+          }
+
+          // Jika admin menekan Reset HP saat pengguna sedang menunggu/login, klaim ulang
+          if (!boundDeviceId) {
+            const claim = await claimDeviceBinding(nik, nama, myDeviceId);
+            if (!claim.ok) {
+              lockApplicationAgain("device_locked", nik, claim.winnerName);
+              return;
+            }
+          }
+
           unlockApplication(nama, nik);
         } else if (status === "blocked") {
           if (isAccessApproved) {
@@ -1070,6 +1313,8 @@
         } else if (!isAccessApproved) {
           showLockState("pending", nama, nik);
           if (!silent) showToast("Masih menunggu persetujuan M. Alvian.", "warning");
+        } else {
+          lockApplicationAgain("pending", nik);
         }
       } catch {}
     }
@@ -1089,7 +1334,7 @@
     }
 
     // =========================================================================
-    // 3. PANEL ADMIN RAHASIA (KETUK ICON 5X ATAU ?admin)
+    // 4. PANEL ADMIN RAHASIA (KETUK ICON 5X ATAU ?admin)
     // =========================================================================
     function registerSecretTap() {
       secretTapCount++;
@@ -1153,12 +1398,29 @@
           fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nik, nama, status: "approved", waktu: nowWIB, timestamp: ts })
+            body: JSON.stringify({
+              nik,
+              nama,
+              status: "approved",
+              bound_device_id: "",
+              bound_device_name: "",
+              waktu: nowWIB,
+              timestamp: ts
+            })
           }),
           fetch(`${cleanUrl}/access_requests/${nik}.json`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nik, nama, status: "approved", perangkat: "Ditambahkan Admin", waktu: nowWIB, timestamp: ts })
+            body: JSON.stringify({
+              nik,
+              nama,
+              status: "approved",
+              bound_device_id: "",
+              bound_device_name: "",
+              perangkat: "Menunggu Login HP Pertama",
+              waktu: nowWIB,
+              timestamp: ts
+            })
           })
         ]);
 
@@ -1167,7 +1429,7 @@
         document.getElementById("quickAddName").value = "";
         document.getElementById("quickAddNik").value = "";
         await loadAdminRequests();
-        showToast(`NIK ${nik} (${nama}) diizinkan.`, "success");
+        showToast(`NIK ${nik} diizinkan (otomatis terkunci ke HP pertama yang login).`, "success");
       } catch (err) {
         showToast(`Gagal menambahkan NIK (${err.message}).`, "warning");
       }
@@ -1177,6 +1439,9 @@
       const nik = decodeURIComponent(encodedNik);
       const nama = decodeURIComponent(encodedNama);
       const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
+      const userObj = adminAllUsers.find(u => u.nik === nik) || {};
+      const targetDeviceId = userObj.bound_device_id || userObj.device_id || "";
+      const targetDeviceName = userObj.bound_device_name || userObj.perangkat || "";
 
       try {
         if (newStatus === "delete") {
@@ -1189,25 +1454,38 @@
             fetch(`${cleanUrl}/access_requests/${nik}.json`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ nik, nama, status: newStatus })
+              body: JSON.stringify({
+                nik,
+                nama,
+                status: newStatus,
+                bound_device_id: targetDeviceId,
+                bound_device_name: targetDeviceName
+              })
             }),
             fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ nik, nama, status: newStatus, timestamp: Date.now() })
+              body: JSON.stringify({
+                nik,
+                nama,
+                status: newStatus,
+                bound_device_id: targetDeviceId,
+                bound_device_name: targetDeviceName,
+                timestamp: Date.now()
+              })
             })
           ]);
         }
 
         if (nik === savedNik) {
-          if (newStatus === "approved") unlockApplication(nama, nik);
+          if (newStatus === "approved") checkNikAccessStatus(nik, true);
           else lockApplicationAgain(newStatus === "blocked" ? "blocked" : "idle", nik);
         }
 
         await loadAdminRequests();
         showToast(
           newStatus === "approved"
-            ? `NIK ${nik} diizinkan.`
+            ? `NIK ${nik} diizinkan (terikat 1 HP).`
             : newStatus === "blocked"
             ? `NIK ${nik} dikunci.`
             : `NIK ${nik} dihapus.`,
@@ -1215,6 +1493,42 @@
         );
       } catch {
         showToast("Gagal memperbarui izin.", "warning");
+      }
+    }
+
+    async function resetDeviceBinding(encodedNik, encodedNama) {
+      const nik = decodeURIComponent(encodedNik);
+      const nama = decodeURIComponent(encodedNama);
+      const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
+
+      try {
+        await Promise.all([
+          fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              device_id: "",
+              bound_device_id: "",
+              bound_device_name: "",
+              perangkat: "Reset HP — Menunggu Login HP Baru"
+            })
+          }),
+          fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nik,
+              nama,
+              bound_device_id: "",
+              bound_device_name: ""
+            })
+          })
+        ]);
+
+        await loadAdminRequests();
+        showToast(`Ikatan HP untuk NIK ${nik} direset. Bisa dipakai di 1 HP baru.`, "success");
+      } catch {
+        showToast("Gagal mereset ikatan HP.", "warning");
       }
     }
 
@@ -1231,27 +1545,37 @@
 
       try {
         await Promise.all(
-          pendingList.flatMap(u => [
-            fetch(`${cleanUrl}/access_requests/${u.nik}.json`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "approved" })
-            }),
-            fetch(`${cleanUrl}/approved_niks/${u.nik}.json`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                nik: u.nik,
-                nama: u.nama || "Pengguna",
-                status: "approved",
-                timestamp: ts
+          pendingList.flatMap(u => {
+            const devId = u.bound_device_id || u.device_id || "";
+            const devName = u.bound_device_name || u.perangkat || "";
+            return [
+              fetch(`${cleanUrl}/access_requests/${u.nik}.json`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  status: "approved",
+                  bound_device_id: devId,
+                  bound_device_name: devName
+                })
+              }),
+              fetch(`${cleanUrl}/approved_niks/${u.nik}.json`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  nik: u.nik,
+                  nama: u.nama || "Pengguna",
+                  status: "approved",
+                  bound_device_id: devId,
+                  bound_device_name: devName,
+                  timestamp: ts
+                })
               })
-            })
-          ])
+            ];
+          })
         );
 
         await loadAdminRequests();
-        showToast(`${pendingList.length} permintaan berhasil diizinkan.`, "success");
+        showToast(`${pendingList.length} permintaan berhasil diizinkan (masing-masing terkunci 1 HP).`, "success");
       } catch {
         showToast("Sebagian permintaan gagal diproses.", "warning");
       } finally {
@@ -1346,6 +1670,8 @@
         const st = u.status || "pending";
         const encNik = encodeURIComponent(u.nik || "");
         const encNama = encodeURIComponent(u.nama || "");
+        const hasBoundHp = Boolean(u.bound_device_id);
+
         const badge =
           st === "approved"
             ? `<span class="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold shrink-0">Diizinkan</span>`
@@ -1353,41 +1679,54 @@
             ? `<span class="px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold shrink-0">Diblokir</span>`
             : `<span class="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold shrink-0">Menunggu</span>`;
 
+        const hpLockBadge = hasBoundHp
+          ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-[10px] font-semibold text-sky-300"><i class="fa-solid fa-mobile-screen-button text-[9px]"></i> Terkunci 1 HP</span>`
+          : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 border border-white/[0.08] text-[10px] font-medium text-slate-400"><i class="fa-solid fa-mobile-screen text-[9px]"></i> Belum Terikat HP</span>`;
+
         return `
           <div class="p-3.5 rounded-2xl bg-slate-950/75 border border-white/[0.07] space-y-2.5">
             <div class="flex items-start justify-between gap-2">
               <div class="space-y-1">
-                <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex items-center gap-1.5 flex-wrap">
                   <span class="font-bold text-white text-sm">${escapeHtml(u.nama || "Tanpa Nama")}</span>
                   <span class="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-[11px] font-mono font-semibold text-indigo-300">
                     NIK: ${escapeHtml(u.nik || "-")}
                   </span>
+                  ${hpLockBadge}
                 </div>
-                <div class="text-[11px] text-slate-400">${escapeHtml(u.perangkat || "Terdaftar di Sistem")}</div>
+                <div class="text-[11px] text-slate-400">${escapeHtml(u.bound_device_name || u.perangkat || "Menunggu Login HP Pertama")}</div>
                 <div class="text-[10px] text-slate-500">${escapeHtml(u.waktu || "")}</div>
               </div>
               ${badge}
             </div>
 
-            <div class="flex items-center gap-2 pt-1">
+            <div class="grid grid-cols-4 gap-1.5 pt-1">
               <button
                 onclick="setNikStatus('${encNik}', '${encNama}', 'approved')"
-                class="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/30 text-emerald-300 font-semibold transition"
+                class="py-1.5 px-2 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/30 text-emerald-300 font-semibold transition"
               >
-                <i class="fa-solid fa-check mr-1"></i> Izinkan
+                <i class="fa-solid fa-check mr-1"></i>Izinkan
+              </button>
+              <button
+                onclick="resetDeviceBinding('${encNik}', '${encNama}')"
+                ${hasBoundHp ? "" : "disabled"}
+                class="py-1.5 px-2 rounded-lg bg-sky-600/20 hover:bg-sky-600/35 disabled:opacity-35 disabled:pointer-events-none border border-sky-500/30 text-sky-300 font-semibold transition"
+                title="Lepas ikatan HP lama agar bisa login di 1 HP baru"
+              >
+                <i class="fa-solid fa-mobile-screen-button mr-1"></i>Reset HP
               </button>
               <button
                 onclick="setNikStatus('${encNik}', '${encNama}', 'blocked')"
-                class="flex-1 py-1.5 px-2.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/35 border border-amber-500/30 text-amber-300 font-semibold transition"
+                class="py-1.5 px-2 rounded-lg bg-amber-600/20 hover:bg-amber-600/35 border border-amber-500/30 text-amber-300 font-semibold transition"
               >
-                <i class="fa-solid fa-lock mr-1"></i> Kunci
+                <i class="fa-solid fa-lock mr-1"></i>Kunci
               </button>
               <button
                 onclick="setNikStatus('${encNik}', '${encNama}', 'delete')"
-                class="py-1.5 px-2.5 rounded-lg bg-rose-600/15 hover:bg-rose-600/30 border border-rose-500/25 text-rose-300 transition"
+                class="py-1.5 px-2 rounded-lg bg-rose-600/15 hover:bg-rose-600/30 border border-rose-500/25 text-rose-300 font-semibold transition"
                 title="Hapus"
               >
-                <i class="fa-solid fa-trash"></i>
+                <i class="fa-solid fa-trash mr-1"></i>Hapus
               </button>
             </div>
           </div>
@@ -1437,7 +1776,10 @@
               nik,
               nama: val.nama || "Pengguna Terdaftar",
               status: val.status || "approved",
-              perangkat: val.perangkat || "Terdaftar di Sistem",
+              device_id: val.bound_device_id || "",
+              bound_device_id: val.bound_device_id || "",
+              bound_device_name: val.bound_device_name || "",
+              perangkat: val.bound_device_name || val.perangkat || "Menunggu Login HP Pertama",
               waktu: val.waktu || "",
               timestamp: val.timestamp || 0
             });
@@ -1455,7 +1797,10 @@
               nik,
               nama: val.nama || existing.nama || "Tanpa Nama",
               status: val.status || existing.status || "pending",
-              perangkat: val.perangkat || existing.perangkat || "-",
+              device_id: val.device_id || existing.device_id || "",
+              bound_device_id: existing.bound_device_id || val.bound_device_id || "",
+              bound_device_name: existing.bound_device_name || val.bound_device_name || "",
+              perangkat: existing.bound_device_name || val.perangkat || existing.perangkat || "-",
               waktu: val.waktu || existing.waktu || "",
               timestamp: Math.max(val.timestamp || 0, existing.timestamp || 0)
             });
@@ -1472,7 +1817,7 @@
     }
 
     // =========================================================================
-    // 4. PENCATAT PENGUNJUNG TERSEMBUNYI KE FIREBASE (WRITE-ONLY)
+    // 5. PENCATAT PENGUNJUNG TERSEMBUNYI KE FIREBASE (WRITE-ONLY)
     // =========================================================================
     function getDeviceSummary() {
       const ua = navigator.userAgent || "";
@@ -1528,6 +1873,7 @@
         const payload = {
           nama: localStorage.getItem("sv_req_name_v1") || "-",
           nik: localStorage.getItem("sv_req_nik_v1") || "-",
+          device_id: currentDeviceId || localStorage.getItem("sv_device_id_v1") || "-",
           pertama_akses: firstVisit,
           terakhir_akses: nowWIB,
           jumlah_buka: visitCount,
@@ -1546,7 +1892,7 @@
     }
 
     // =========================================================================
-    // 5. HELPER INDEXEDDB (CACHE LOKAL INSTAN)
+    // 6. HELPER INDEXEDDB (CACHE LOKAL INSTAN)
     // =========================================================================
     function openCacheDB() {
       return new Promise((resolve, reject) => {
@@ -1604,7 +1950,7 @@
     }
 
     // =========================================================================
-    // 6. NORMALISASI TEKS & BIGRAM
+    // 7. NORMALISASI TEKS & BIGRAM
     // =========================================================================
     const CLEAN_REGEX = /[^a-z0-9\s]/g;
     const SPACE_REGEX = /\s+/g;
@@ -1626,7 +1972,7 @@
     }
 
     // =========================================================================
-    // 7. PEMUAT DATA JSON SUPER CEPAT
+    // 8. PEMUAT DATA JSON SUPER CEPAT
     // =========================================================================
     function setLoadingState(loading) {
       isCurrentlyLoading = loading;
@@ -1801,7 +2147,7 @@
     }
 
     // =========================================================================
-    // 8. ALGORITMA PENCARIAN 2-TAHAP & FUZZY MATCHING
+    // 9. ALGORITMA PENCARIAN 2-TAHAP & FUZZY MATCHING
     // =========================================================================
     function levenshteinDistance(a, b, maxDist) {
       const lenA = a.length;
@@ -2022,7 +2368,7 @@
     }
 
     // =========================================================================
-    // 9. RENDER HASIL PENCARIAN
+    // 10. RENDER HASIL PENCARIAN
     // =========================================================================
     function escapeHtml(str) {
       return String(str ?? "")
@@ -2112,7 +2458,7 @@
     }
 
     // =========================================================================
-    // 10. EVENT HANDLERS & MODAL
+    // 11. EVENT HANDLERS & MODAL
     // =========================================================================
     searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
@@ -2129,6 +2475,12 @@
         searchInput.focus();
       } else if (e.key === "Escape" && document.activeElement === searchInput && searchInput.value) {
         clearSearch();
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && isAccessApproved && savedNik && savedNik !== "ADMIN") {
+        checkNikAccessStatus(savedNik, true);
       }
     });
 
@@ -2220,9 +2572,11 @@
     }
 
     // =========================================================================
-    // 11. INISIALISASI GERBANG KUNCI SAAT HALAMAN DIBUKA
+    // 12. INISIALISASI GERBANG KUNCI SAAT HALAMAN DIBUKA
     // =========================================================================
     (async function initGate() {
+      await getOrCreateDeviceId();
+
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.has("admin") || sessionStorage.getItem("sv_admin_ok") === "1") {
         setTimeout(openAdminPanel, 250);
@@ -2230,8 +2584,12 @@
 
       const approvedNik = localStorage.getItem("sv_approved_nik_v1");
       if (approvedNik) {
-        unlockApplication(savedName, approvedNik);
-        checkNikAccessStatus(approvedNik, true);
+        if (approvedNik === "ADMIN") {
+          unlockApplication(savedName || "M. Alvian (Admin)", "ADMIN");
+        } else {
+          // Verifikasi ke Firebase agar tidak bisa dipalsukan di HP ke-2
+          await checkNikAccessStatus(approvedNik, true);
+        }
         return;
       }
 
@@ -2249,8 +2607,11 @@
           document.getElementById("directNikInput").value = savedNik;
         }
         if (backup.approved && savedNik) {
-          unlockApplication(savedName, savedNik);
-          checkNikAccessStatus(savedNik, true);
+          if (savedNik === "ADMIN") {
+            unlockApplication(savedName, "ADMIN");
+          } else {
+            await checkNikAccessStatus(savedNik, true);
+          }
           return;
         }
       }
