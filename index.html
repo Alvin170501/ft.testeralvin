@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <script>
     tailwind.config = {
@@ -48,20 +48,237 @@
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
 
+  <!-- ===================================================================== -->
+  <!-- LAYAR KUNCI AKSES (ACCESS GATE)                                       -->
+  <!-- ===================================================================== -->
+  <div id="lockScreen" class="fixed inset-0 z-50 bg-[#070b14] flex items-center justify-center p-4 overflow-y-auto">
+    <div class="max-w-md w-full bg-slate-900/95 border border-white/[0.1] rounded-3xl p-6 sm:p-7 shadow-2xl shadow-black/60 space-y-5 relative overflow-hidden">
+      <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Header Lock -->
+      <div class="flex items-center justify-between">
+        <button
+          type="button"
+          onclick="registerSecretTap()"
+          class="touch-manipulation select-none w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-700/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shadow-inner active:scale-95 transition"
+          title="Akses Terkunci"
+        >
+          <i id="lockHeaderIcon" class="fa-solid fa-lock text-lg"></i>
+        </button>
+
+        <span class="px-3 py-1 rounded-full bg-slate-800/90 border border-white/[0.08] text-[11px] font-mono text-slate-300 flex items-center gap-1.5">
+          <i class="fa-solid fa-shield-halved text-indigo-400 text-[10px]"></i>
+          <span>Akses Terbatas</span>
+        </span>
+      </div>
+
+      <div class="space-y-1.5">
+        <h2 id="lockTitle" class="text-xl font-extrabold text-white tracking-tight">
+          Akses Web Terkunci
+        </h2>
+        <p id="lockDesc" class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+          Halaman Bank Soal ini dikelola oleh <span class="text-slate-200 font-semibold">M. Alvian</span>. Isi <strong class="text-slate-200">Nama</strong> dan <strong class="text-slate-200">NIK</strong> untuk meminta akses, atau langsung masuk memakai NIK jika sudah diizinkan.
+        </p>
+      </div>
+
+      <!-- Switcher Tab: Minta Izin vs Masuk Pakai NIK -->
+      <div id="gateTabs" class="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-950/90 border border-white/[0.07]">
+        <button
+          type="button"
+          id="tabRequestBtn"
+          onclick="switchGateTab('request')"
+          class="py-2 px-3 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow transition"
+        >
+          Minta Izin Akses
+        </button>
+        <button
+          type="button"
+          id="tabLoginBtn"
+          onclick="switchGateTab('login')"
+          class="py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition"
+        >
+          Masuk Pakai NIK
+        </button>
+      </div>
+
+      <!-- FORM 1: MINTA IZIN AKSES (NAMA + NIK) -->
+      <div id="requestFormWrap" class="space-y-3.5">
+        <div>
+          <label for="requesterNameInput" class="block text-xs font-semibold text-slate-300 mb-1.5">
+            Nama Lengkap / Panggilan
+          </label>
+          <input
+            type="text"
+            id="requesterNameInput"
+            placeholder="Contoh: M. Alvian"
+            maxlength="40"
+            autocomplete="name"
+            class="w-full px-4 py-3 rounded-xl bg-slate-950/90 border border-white/[0.1] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 outline-none text-sm text-white placeholder-slate-500 transition"
+          />
+        </div>
+
+        <div>
+          <label for="requesterNikInput" class="block text-xs font-semibold text-slate-300 mb-1.5">
+            NIK Karyawan
+          </label>
+          <input
+            type="text"
+            id="requesterNikInput"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            placeholder="Contoh: 2205123456"
+            maxlength="16"
+            autocomplete="off"
+            oninput="this.value = this.value.replace(/\D/g, '')"
+            class="w-full px-4 py-3 rounded-xl bg-slate-950/90 border border-white/[0.1] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 outline-none text-sm font-mono text-white placeholder-slate-500 transition"
+          />
+        </div>
+
+        <button
+          type="button"
+          id="submitRequestBtn"
+          onclick="submitAccessRequest()"
+          class="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition active:scale-[0.99]"
+        >
+          <i class="fa-solid fa-paper-plane text-xs"></i>
+          <span>Minta Izin Akses</span>
+        </button>
+      </div>
+
+      <!-- FORM 2: LANGSUNG MASUK PAKAI NIK (UNTUK YANG SUDAH DIIZINKAN) -->
+      <div id="nikLoginWrap" class="hidden space-y-3.5">
+        <div>
+          <label for="directNikInput" class="block text-xs font-semibold text-slate-300 mb-1.5">
+            Masukkan NIK yang Sudah Diizinkan
+          </label>
+          <input
+            type="text"
+            id="directNikInput"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            placeholder="Contoh: 2205123456"
+            maxlength="16"
+            autocomplete="off"
+            oninput="this.value = this.value.replace(/\D/g, '')"
+            onkeydown="if(event.key === 'Enter') loginWithNikOnly()"
+            class="w-full px-4 py-3 rounded-xl bg-slate-950/90 border border-white/[0.1] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 outline-none text-sm font-mono text-white placeholder-slate-500 transition"
+          />
+        </div>
+
+        <button
+          type="button"
+          id="directLoginBtn"
+          onclick="loginWithNikOnly()"
+          class="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition active:scale-[0.99]"
+        >
+          <i class="fa-solid fa-right-to-bracket text-xs"></i>
+          <span>Langsung Masuk</span>
+        </button>
+      </div>
+
+      <!-- STATUS: MENUNGGU PERSETUJUAN -->
+      <div id="pendingStatusWrap" class="hidden space-y-4">
+        <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-2">
+          <div class="flex items-center gap-2.5 text-amber-300 text-xs font-bold">
+            <i class="fa-solid fa-hourglass-half fa-spin"></i>
+            <span>Menunggu Persetujuan Admin</span>
+          </div>
+          <p class="text-xs text-amber-200/85 leading-relaxed">
+            Permintaan atas nama <strong id="pendingUserName" class="text-white">---</strong> (NIK: <strong id="pendingUserNik" class="font-mono text-amber-200">---</strong>) sudah terkirim. Halaman ini akan terbuka otomatis begitu diizinkan.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick="checkNikAccessStatus(currentPendingNik, false)"
+            class="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/[0.08] text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition"
+          >
+            <i class="fa-solid fa-rotate"></i>
+            <span>Cek Status Sekarang</span>
+          </button>
+          <button
+            type="button"
+            onclick="resetRequestForm()"
+            class="py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-white/[0.08] text-xs font-medium text-slate-400 transition"
+          >
+            Ganti NIK
+          </button>
+        </div>
+      </div>
+
+      <!-- STATUS: DITOLAK / DIBLOKIR -->
+      <div id="blockedStatusWrap" class="hidden space-y-4">
+        <div class="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-1.5">
+          <div class="flex items-center gap-2 text-rose-300 text-xs font-bold">
+            <i class="fa-solid fa-ban"></i>
+            <span>Akses Ditolak / Dinonaktifkan</span>
+          </div>
+          <p class="text-xs text-rose-200/80 leading-relaxed">
+            NIK <strong id="blockedUserNik" class="font-mono text-white">---</strong> tidak memiliki izin akses. Hubungi M. Alvian jika ini sebuah kekeliruan.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick="checkNikAccessStatus(currentPendingNik, false)"
+            class="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/[0.08] text-xs font-semibold text-slate-200 transition"
+          >
+            Periksa Ulang Izin
+          </button>
+          <button
+            type="button"
+            onclick="resetRequestForm()"
+            class="py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-white/[0.08] text-xs font-medium text-slate-400 transition"
+          >
+            Ganti NIK
+          </button>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-white/[0.07] flex items-center justify-between text-[11px] text-slate-500">
+        <span>Oleh <strong class="text-slate-300">M. Alvian</strong></span>
+        <a
+          href="https://www.instagram.com/alviannnnm/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-slate-400 hover:text-pink-400 font-mono transition"
+        >
+          @alviannnnm
+        </a>
+      </div>
+    </div>
+  </div>
+
   <!-- Top Navigation Bar -->
   <nav class="sticky top-0 z-30 bg-[#070b14]/85 backdrop-blur-xl border-b border-white/[0.07]">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-      <a href="#" onclick="clearSearch(); return false;" class="flex items-center gap-3 group">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-600/25 ring-1 ring-white/15 group-hover:scale-105 transition">
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          onclick="registerSecretTap()"
+          class="touch-manipulation select-none w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-600/25 ring-1 ring-white/15 active:scale-95 transition"
+          title="Bank Soal & Jawaban"
+        >
           <i class="fa-solid fa-magnifying-glass text-white text-sm"></i>
-        </div>
-        <div>
+        </button>
+        <a href="#" onclick="clearSearch(); return false;" class="group">
           <span class="font-bold text-sm sm:text-base tracking-tight text-white block leading-tight">Bank Soal & Jawaban</span>
           <span class="text-[11px] text-slate-400 block leading-none mt-0.5">Oleh <span class="text-slate-200 font-medium">M. Alvian</span></span>
-        </div>
-      </a>
+        </a>
+      </div>
 
       <div class="flex items-center gap-2">
+        <button
+          id="navAdminBtn"
+          onclick="openAdminPanel()"
+          class="hidden px-2.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/35 text-xs font-semibold text-indigo-300 items-center gap-1.5 transition"
+          title="Kelola Izin Akses"
+        >
+          <i class="fa-solid fa-user-shield text-[11px]"></i>
+          <span class="hidden sm:inline">Izin</span>
+        </button>
+
         <button
           onclick="toggleStatusModal(true)"
           class="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-white/[0.08] hover:border-white/[0.15] text-xs font-medium text-slate-300 flex items-center gap-2 transition shadow-sm"
@@ -71,7 +288,7 @@
             <span id="dbPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
             <span id="dbDot" class="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span>
           </span>
-          <span id="dbBadgeLabel" class="font-mono text-[11px]">Memuat...</span>
+          <span id="dbBadgeLabel" class="font-mono text-[11px]">Terkunci</span>
           <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
         </button>
       </div>
@@ -274,7 +491,7 @@
   </footer>
 
   <!-- Modal Info Database -->
-  <div id="statusModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overscroll-contain">
+  <div id="statusModal" class="hidden fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overscroll-contain">
     <div class="bg-slate-900 border border-white/[0.1] rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl">
       <div class="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
         <div>
@@ -304,22 +521,98 @@
     </div>
   </div>
 
+  <!-- ===================================================================== -->
+  <!-- MODAL ADMIN PENGELOLA IZIN AKSES (KHUSUS ALVIN)                       -->
+  <!-- ===================================================================== -->
+  <div id="adminModal" class="hidden fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overscroll-contain">
+    <div class="bg-slate-900 border border-white/[0.12] rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-white/[0.08] flex items-center justify-between gap-3">
+        <div>
+          <h2 class="font-extrabold text-base text-white flex items-center gap-2">
+            <i class="fa-solid fa-user-shield text-indigo-400"></i>
+            Panel Kontrol Akses
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Izinkan NIK agar pengguna bisa langsung masuk tanpa izin ulang</p>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button
+            onclick="loadAdminRequests()"
+            class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition"
+            title="Segarkan Daftar"
+          >
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+          <button
+            onclick="closeAdminPanel()"
+            class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tambah NIK Cepat / Masuk Admin -->
+      <div class="px-5 py-3.5 bg-indigo-950/35 border-b border-white/[0.06] space-y-2.5 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="font-semibold text-indigo-200">Tambah / Izinkan NIK Langsung:</span>
+          <button
+            onclick="approveAdminSession()"
+            class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition"
+          >
+            Buka Web Ini (Admin)
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <input
+            type="text"
+            id="quickAddName"
+            placeholder="Nama"
+            maxlength="40"
+            class="w-1/2 px-3 py-2 rounded-xl bg-slate-950/90 border border-white/[0.1] text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500"
+          />
+          <input
+            type="text"
+            id="quickAddNik"
+            inputmode="numeric"
+            placeholder="NIK"
+            maxlength="16"
+            oninput="this.value = this.value.replace(/\D/g, '')"
+            class="w-1/2 px-3 py-2 rounded-xl bg-slate-950/90 border border-white/[0.1] text-xs font-mono text-white placeholder-slate-500 outline-none focus:border-indigo-500"
+          />
+          <button
+            onclick="quickApproveNik()"
+            class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shrink-0 transition"
+          >
+            Izinkan
+          </button>
+        </div>
+      </div>
+
+      <!-- Daftar Permintaan & Pengguna -->
+      <div id="adminRequestList" class="p-5 overflow-y-auto space-y-3 flex-1 text-xs">
+        <div class="text-center py-8 text-slate-400">Memuat daftar permintaan...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notifikasi -->
-  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-full bg-slate-800 border border-white/15 text-white text-xs font-semibold shadow-2xl flex items-center gap-2">
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] hidden px-4 py-2.5 rounded-full bg-slate-800 border border-white/15 text-white text-xs font-semibold shadow-2xl flex items-center gap-2">
     <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
     <span id="toastMsg">Tersalin!</span>
   </div>
 
   <script>
     // =========================================================================
-    // 1. KONFIGURASI FIREBASE & SUMBER DATA JSON
+    // 1. KONFIGURASI FIREBASE, PIN ADMIN & SUMBER DATA JSON
     // =========================================================================
     const FIREBASE_DB_URL = "https://trafficview-c2caf-default-rtdb.asia-southeast1.firebasedatabase.app";
+    const ADMIN_PIN = "170501";
 
     const DATA_FILE = "data1.json";
     const IDB_NAME = "BankSoalCache_Alvian";
     const IDB_STORE = "indexStore";
     const IDB_KEY = "data1_json_index_v1";
+    const IDB_AUTH_KEY = "auth_nik_state_v1";
 
     const STOPWORDS = new Set([
       "apa", "yang", "di", "ke", "dari", "pada", "adalah", "yaitu", "yakni",
@@ -329,8 +622,14 @@
       "bisa", "harus", "antara", "bawah", "atas", "kecuali", "dimaksud"
     ]);
 
+    let isAccessApproved = false;
     let isDatabaseReady = false;
     let isCurrentlyLoading = false;
+    let accessPollTimer = null;
+    let secretTapCount = 0;
+    let secretTapTimer = null;
+    let currentPendingNik = "";
+
     let bankSoal = [];
     let uniqueVocab = [];
     let fileSizeMB = 0;
@@ -352,7 +651,555 @@
     const loadMoreWrap = document.getElementById("loadMoreWrap");
 
     // =========================================================================
-    // 2. PENCATAT PENGUNJUNG TERSEMBUNYI KE FIREBASE (WRITE-ONLY)
+    // 2. SISTEM KUNCI AKSES BERBASIS NAMA & NIK (FIREBASE)
+    // =========================================================================
+    let savedName = localStorage.getItem("sv_req_name_v1") || "";
+    let savedNik = localStorage.getItem("sv_req_nik_v1") || "";
+    if (savedName) document.getElementById("requesterNameInput").value = savedName;
+    if (savedNik) {
+      document.getElementById("requesterNikInput").value = savedNik;
+      document.getElementById("directNikInput").value = savedNik;
+    }
+
+    async function saveAuthBackup(approved, name = "", nik = "", pending = false) {
+      try {
+        if (name) {
+          savedName = name;
+          localStorage.setItem("sv_req_name_v1", name);
+        }
+        if (nik) {
+          savedNik = nik;
+          localStorage.setItem("sv_req_nik_v1", nik);
+        }
+        if (approved) {
+          localStorage.setItem("sv_approved_nik_v1", nik || savedNik || "ADMIN");
+          localStorage.removeItem("sv_pending_nik_v1");
+        } else {
+          localStorage.removeItem("sv_approved_nik_v1");
+          if (pending && nik) {
+            localStorage.setItem("sv_pending_nik_v1", nik);
+          } else {
+            localStorage.removeItem("sv_pending_nik_v1");
+          }
+        }
+
+        const db = await openCacheDB();
+        await new Promise((resolve) => {
+          const tx = db.transaction(IDB_STORE, "readwrite");
+          tx.objectStore(IDB_STORE).put({
+            name: savedName,
+            nik: savedNik,
+            approved: Boolean(approved),
+            pending: Boolean(pending)
+          }, IDB_AUTH_KEY);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        });
+      } catch {}
+    }
+
+    async function readAuthBackup() {
+      try {
+        const db = await openCacheDB();
+        return await new Promise((resolve) => {
+          const tx = db.transaction(IDB_STORE, "readonly");
+          const req = tx.objectStore(IDB_STORE).get(IDB_AUTH_KEY);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        });
+      } catch {
+        return null;
+      }
+    }
+
+    function switchGateTab(tab) {
+      const tabReq = document.getElementById("tabRequestBtn");
+      const tabLog = document.getElementById("tabLoginBtn");
+      const reqWrap = document.getElementById("requestFormWrap");
+      const logWrap = document.getElementById("nikLoginWrap");
+
+      if (tab === "login") {
+        tabLog.className = "py-2 px-3 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow transition";
+        tabReq.className = "py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition";
+        reqWrap.classList.add("hidden");
+        logWrap.classList.remove("hidden");
+        const typedNik = document.getElementById("requesterNikInput").value.trim();
+        if (typedNik && !document.getElementById("directNikInput").value.trim()) {
+          document.getElementById("directNikInput").value = typedNik;
+        }
+        document.getElementById("directNikInput").focus();
+      } else {
+        tabReq.className = "py-2 px-3 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow transition";
+        tabLog.className = "py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition";
+        logWrap.classList.add("hidden");
+        reqWrap.classList.remove("hidden");
+        const typedNik = document.getElementById("directNikInput").value.trim();
+        if (typedNik && !document.getElementById("requesterNikInput").value.trim()) {
+          document.getElementById("requesterNikInput").value = typedNik;
+        }
+      }
+    }
+
+    function showLockState(state, userName = "", userNik = "") {
+      const lockScreen = document.getElementById("lockScreen");
+      const gateTabs = document.getElementById("gateTabs");
+      const reqWrap = document.getElementById("requestFormWrap");
+      const logWrap = document.getElementById("nikLoginWrap");
+      const pendWrap = document.getElementById("pendingStatusWrap");
+      const blockWrap = document.getElementById("blockedStatusWrap");
+      const lockTitle = document.getElementById("lockTitle");
+      const lockIcon = document.getElementById("lockHeaderIcon");
+
+      if (userNik) currentPendingNik = userNik;
+
+      lockScreen.classList.remove("hidden");
+      gateTabs.classList.add("hidden");
+      reqWrap.classList.add("hidden");
+      logWrap.classList.add("hidden");
+      pendWrap.classList.add("hidden");
+      blockWrap.classList.add("hidden");
+
+      if (state === "pending") {
+        lockTitle.textContent = "Menunggu Izin Akses";
+        lockIcon.className = "fa-solid fa-clock text-amber-400 text-lg";
+        document.getElementById("pendingUserName").textContent = userName || savedName || "Pengguna";
+        document.getElementById("pendingUserNik").textContent = userNik || savedNik || "-";
+        pendWrap.classList.remove("hidden");
+      } else if (state === "blocked") {
+        lockTitle.textContent = "Akses Dinonaktifkan";
+        lockIcon.className = "fa-solid fa-ban text-rose-400 text-lg";
+        document.getElementById("blockedUserNik").textContent = userNik || savedNik || "-";
+        blockWrap.classList.remove("hidden");
+      } else {
+        lockTitle.textContent = "Akses Web Terkunci";
+        lockIcon.className = "fa-solid fa-lock text-indigo-400 text-lg";
+        gateTabs.classList.remove("hidden");
+        switchGateTab("request");
+      }
+    }
+
+    function unlockApplication(userName = "", userNik = "") {
+      saveAuthBackup(true, userName, userNik, false);
+
+      if (isAccessApproved) return;
+      isAccessApproved = true;
+      clearInterval(accessPollTimer);
+      document.getElementById("lockScreen").classList.add("hidden");
+      trackVisitorSilently();
+      loadDatabase();
+    }
+
+    function lockApplicationAgain(state = "blocked", nik = "") {
+      isAccessApproved = false;
+      isDatabaseReady = false;
+      saveAuthBackup(false, savedName, nik || savedNik, false);
+      bankSoal = [];
+      uniqueVocab = [];
+      searchInput.value = "";
+      searchInput.disabled = true;
+      pasteBtn.disabled = true;
+      document.getElementById("dbBadgeLabel").textContent = "Terkunci";
+      document.getElementById("dbDot").className = "relative inline-flex rounded-full h-2 w-2 bg-rose-400";
+      showLockState(state, savedName, nik || savedNik);
+    }
+
+    async function fetchNikRecord(nik) {
+      const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
+      const [appRes, reqRes] = await Promise.all([
+        fetch(`${cleanUrl}/approved_niks/${nik}.json?t=${Date.now()}`, { cache: "no-store" }),
+        fetch(`${cleanUrl}/access_requests/${nik}.json?t=${Date.now()}`, { cache: "no-store" })
+      ]);
+      const appData = appRes.ok ? await appRes.json() : null;
+      const reqData = reqRes.ok ? await reqRes.json() : null;
+      return { appData, reqData };
+    }
+
+    async function submitAccessRequest() {
+      const nameInput = document.getElementById("requesterNameInput");
+      const nikInput = document.getElementById("requesterNikInput");
+      const nama = nameInput.value.trim();
+      const nik = nikInput.value.replace(/\D/g, "").trim();
+
+      if (nama.length < 2) {
+        showToast("Masukkan nama lengkap atau panggilan kamu.", "warning");
+        nameInput.focus();
+        return;
+      }
+
+      if (!/^\d{6,16}$/.test(nik)) {
+        showToast("Masukkan NIK yang valid (6–16 digit angka).", "warning");
+        nikInput.focus();
+        return;
+      }
+
+      const btn = document.getElementById("submitRequestBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-xs"></i><span>Memeriksa...</span>`;
+
+      const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
+      try {
+        const { appData, reqData } = await fetchNikRecord(nik);
+
+        const isBlocked =
+          (appData && appData.status === "blocked") ||
+          (reqData && reqData.status === "blocked");
+
+        const isApproved =
+          !isBlocked && (
+            (appData && appData.status === "approved") ||
+            (reqData && reqData.status === "approved")
+          );
+
+        if (isApproved) {
+          const finalName = nama || (appData && appData.nama) || (reqData && reqData.nama) || "Pengguna";
+          await fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nik,
+              nama: finalName,
+              status: "approved",
+              perangkat: getDeviceSummary(),
+              waktu: formatWaktuWIB(),
+              timestamp: Date.now()
+            })
+          });
+          unlockApplication(finalName, nik);
+          showToast("NIK sudah diizinkan. Langsung masuk!", "success");
+          return;
+        }
+
+        if (isBlocked) {
+          await saveAuthBackup(false, nama, nik, false);
+          showLockState("blocked", nama, nik);
+          showToast("Akses untuk NIK ini dinonaktifkan.", "warning");
+          return;
+        }
+
+        const payload = {
+          nik,
+          nama,
+          status: "pending",
+          perangkat: getDeviceSummary(),
+          waktu: formatWaktuWIB(),
+          timestamp: Date.now()
+        };
+
+        await fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        await saveAuthBackup(false, nama, nik, true);
+        showLockState("pending", nama, nik);
+        startAccessPolling(nik);
+        showToast("Permintaan akses terkirim. Menunggu izin M. Alvian.", "success");
+      } catch {
+        showToast("Gagal terhubung ke server izin. Coba lagi.", "warning");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-paper-plane text-xs"></i><span>Minta Izin Akses</span>`;
+      }
+    }
+
+    async function loginWithNikOnly() {
+      const nikInput = document.getElementById("directNikInput");
+      const nik = nikInput.value.replace(/\D/g, "").trim();
+
+      if (!/^\d{6,16}$/.test(nik)) {
+        showToast("Masukkan NIK yang valid (6–16 digit angka).", "warning");
+        nikInput.focus();
+        return;
+      }
+
+      const btn = document.getElementById("directLoginBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-xs"></i><span>Memverifikasi NIK...</span>`;
+
+      try {
+        const { appData, reqData } = await fetchNikRecord(nik);
+        const record = appData || reqData;
+
+        if (!record) {
+          showToast("NIK belum terdaftar. Silakan isi Nama & NIK untuk minta izin.", "warning");
+          document.getElementById("requesterNikInput").value = nik;
+          switchGateTab("request");
+          document.getElementById("requesterNameInput").focus();
+          return;
+        }
+
+        const status = (appData && appData.status) || (reqData && reqData.status) || "pending";
+        const nama = record.nama || savedName || "Pengguna";
+
+        if (status === "approved") {
+          unlockApplication(nama, nik);
+          showToast(`Selamat datang, ${nama}!`, "success");
+        } else if (status === "blocked") {
+          await saveAuthBackup(false, nama, nik, false);
+          showLockState("blocked", nama, nik);
+          showToast("Akses untuk NIK ini dinonaktifkan.", "warning");
+        } else {
+          await saveAuthBackup(false, nama, nik, true);
+          showLockState("pending", nama, nik);
+          startAccessPolling(nik);
+          showToast("Permintaan NIK ini masih menunggu izin M. Alvian.", "warning");
+        }
+      } catch {
+        showToast("Gagal memverifikasi NIK. Periksa koneksi internet.", "warning");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-right-to-bracket text-xs"></i><span>Langsung Masuk</span>`;
+      }
+    }
+
+    async function checkNikAccessStatus(nik, silent = true) {
+      if (!nik || nik === "ADMIN") return;
+      try {
+        const { appData, reqData } = await fetchNikRecord(nik);
+
+        if (!appData && !reqData) {
+          if (isAccessApproved) {
+            lockApplicationAgain("idle", nik);
+          } else {
+            await saveAuthBackup(false, savedName, nik, false);
+            showLockState("idle");
+          }
+          return;
+        }
+
+        const status = (appData && appData.status) || (reqData && reqData.status) || "pending";
+        const nama = (reqData && reqData.nama) || (appData && appData.nama) || savedName || "Pengguna";
+
+        if (status === "approved") {
+          unlockApplication(nama, nik);
+        } else if (status === "blocked") {
+          if (isAccessApproved) {
+            lockApplicationAgain("blocked", nik);
+          } else {
+            await saveAuthBackup(false, nama, nik, false);
+            showLockState("blocked", nama, nik);
+          }
+          if (!silent) showToast("Akses NIK ini dinonaktifkan.", "warning");
+        } else if (!isAccessApproved) {
+          showLockState("pending", nama, nik);
+          if (!silent) showToast("Masih menunggu persetujuan M. Alvian.", "warning");
+        }
+      } catch {}
+    }
+
+    function startAccessPolling(nik) {
+      clearInterval(accessPollTimer);
+      currentPendingNik = nik;
+      accessPollTimer = setInterval(() => {
+        checkNikAccessStatus(currentPendingNik, true);
+      }, 3000);
+    }
+
+    async function resetRequestForm() {
+      clearInterval(accessPollTimer);
+      await saveAuthBackup(false, savedName, savedNik, false);
+      showLockState("idle");
+    }
+
+    // =========================================================================
+    // 3. PANEL ADMIN RAHASIA (KETUK ICON 5X ATAU ?admin)
+    // =========================================================================
+    function registerSecretTap() {
+      secretTapCount++;
+      clearTimeout(secretTapTimer);
+      if (secretTapCount >= 5) {
+        secretTapCount = 0;
+        openAdminPanel();
+        return;
+      }
+      secretTapTimer = setTimeout(() => {
+        secretTapCount = 0;
+      }, 3000);
+    }
+
+    function openAdminPanel() {
+      if (sessionStorage.getItem("sv_admin_ok") === "1") {
+        document.getElementById("adminModal").classList.remove("hidden");
+        loadAdminRequests();
+        return;
+      }
+
+      const pin = prompt("Masukkan PIN Admin M. Alvian:");
+      if (pin === ADMIN_PIN) {
+        sessionStorage.setItem("sv_admin_ok", "1");
+        const navBtn = document.getElementById("navAdminBtn");
+        navBtn.classList.remove("hidden");
+        navBtn.classList.add("inline-flex");
+        document.getElementById("adminModal").classList.remove("hidden");
+        loadAdminRequests();
+      } else if (pin !== null) {
+        showToast("PIN Admin salah.", "warning");
+      }
+    }
+
+    function closeAdminPanel() {
+      document.getElementById("adminModal").classList.add("hidden");
+    }
+
+    function approveAdminSession() {
+      unlockApplication("M. Alvian (Admin)", "ADMIN");
+      closeAdminPanel();
+      showToast("Akses Admin aktif.", "success");
+    }
+
+    async function quickApproveNik() {
+      const nama = document.getElementById("quickAddName").value.trim() || "Pengguna Terdaftar";
+      const nik = document.getElementById("quickAddNik").value.replace(/\D/g, "").trim();
+
+      if (!/^\d{6,16}$/.test(nik)) {
+        showToast("Masukkan NIK 6–16 digit angka.", "warning");
+        document.getElementById("quickAddNik").focus();
+        return;
+      }
+
+      const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
+      const nowWIB = formatWaktuWIB();
+      const ts = Date.now();
+
+      try {
+        await Promise.all([
+          fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nik, nama, status: "approved", waktu: nowWIB, timestamp: ts })
+          }),
+          fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nik, nama, status: "approved", perangkat: "Ditambahkan Admin", waktu: nowWIB, timestamp: ts })
+          })
+        ]);
+
+        document.getElementById("quickAddName").value = "";
+        document.getElementById("quickAddNik").value = "";
+        await loadAdminRequests();
+        showToast(`NIK ${nik} (${nama}) diizinkan.`, "success");
+      } catch {
+        showToast("Gagal menambahkan NIK.", "warning");
+      }
+    }
+
+    async function setNikStatus(encodedNik, encodedNama, newStatus) {
+      const nik = decodeURIComponent(encodedNik);
+      const nama = decodeURIComponent(encodedNama);
+      const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
+
+      try {
+        if (newStatus === "delete") {
+          await Promise.all([
+            fetch(`${cleanUrl}/access_requests/${nik}.json`, { method: "DELETE" }),
+            fetch(`${cleanUrl}/approved_niks/${nik}.json`, { method: "DELETE" })
+          ]);
+        } else {
+          await Promise.all([
+            fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: newStatus })
+            }),
+            fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ nik, nama, status: newStatus, timestamp: Date.now() })
+            })
+          ]);
+        }
+
+        if (nik === savedNik) {
+          if (newStatus === "approved") unlockApplication(nama, nik);
+          else lockApplicationAgain(newStatus === "blocked" ? "blocked" : "idle", nik);
+        }
+
+        await loadAdminRequests();
+        showToast(
+          newStatus === "approved"
+            ? `NIK ${nik} diizinkan.`
+            : newStatus === "blocked"
+            ? `NIK ${nik} dikunci.`
+            : `NIK ${nik} dihapus.`,
+          "success"
+        );
+      } catch {
+        showToast("Gagal memperbarui izin.", "warning");
+      }
+    }
+
+    async function loadAdminRequests() {
+      const listEl = document.getElementById("adminRequestList");
+      const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
+      try {
+        const res = await fetch(`${cleanUrl}/access_requests.json?t=${Date.now()}`, { cache: "no-store" });
+        const raw = res.ok ? await res.json() : null;
+        if (!raw) {
+          listEl.innerHTML = `<div class="text-center py-8 text-slate-400">Belum ada permintaan akses masuk.</div>`;
+          return;
+        }
+
+        const items = Object.values(raw).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        listEl.innerHTML = items.map(u => {
+          const st = u.status || "pending";
+          const encNik = encodeURIComponent(u.nik || "");
+          const encNama = encodeURIComponent(u.nama || "");
+          const badge =
+            st === "approved"
+              ? `<span class="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold shrink-0">Diizinkan</span>`
+              : st === "blocked"
+              ? `<span class="px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold shrink-0">Diblokir</span>`
+              : `<span class="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold shrink-0">Menunggu</span>`;
+
+          return `
+            <div class="p-3.5 rounded-2xl bg-slate-950/75 border border-white/[0.07] space-y-2.5">
+              <div class="flex items-start justify-between gap-2">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-bold text-white text-sm">${escapeHtml(u.nama || "Tanpa Nama")}</span>
+                    <span class="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-[11px] font-mono font-semibold text-indigo-300">
+                      NIK: ${escapeHtml(u.nik || "-")}
+                    </span>
+                  </div>
+                  <div class="text-[11px] text-slate-400">${escapeHtml(u.perangkat || "-")}</div>
+                  <div class="text-[10px] text-slate-500">${escapeHtml(u.waktu || "")}</div>
+                </div>
+                ${badge}
+              </div>
+
+              <div class="flex items-center gap-2 pt-1">
+                <button
+                  onclick="setNikStatus('${encNik}', '${encNama}', 'approved')"
+                  class="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/30 text-emerald-300 font-semibold transition"
+                >
+                  <i class="fa-solid fa-check mr-1"></i> Izinkan
+                </button>
+                <button
+                  onclick="setNikStatus('${encNik}', '${encNama}', 'blocked')"
+                  class="flex-1 py-1.5 px-2.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/35 border border-amber-500/30 text-amber-300 font-semibold transition"
+                >
+                  <i class="fa-solid fa-lock mr-1"></i> Kunci
+                </button>
+                <button
+                  onclick="setNikStatus('${encNik}', '${encNama}', 'delete')"
+                  class="py-1.5 px-2.5 rounded-lg bg-rose-600/15 hover:bg-rose-600/30 border border-rose-500/25 text-rose-300 transition"
+                  title="Hapus"
+                >
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      } catch {
+        listEl.innerHTML = `<div class="text-center py-8 text-rose-400">Gagal memuat daftar permintaan.</div>`;
+      }
+    }
+
+    // =========================================================================
+    // 4. PENCATAT PENGUNJUNG TERSEMBUNYI KE FIREBASE (WRITE-ONLY)
     // =========================================================================
     function getDeviceSummary() {
       const ua = navigator.userAgent || "";
@@ -368,8 +1215,8 @@
       else if (/OPR\/|Opera/i.test(ua)) browser = "Opera";
       else if (/SamsungBrowser/i.test(ua)) browser = "Samsung Internet";
       else if (/Chrome\//i.test(ua)) browser = "Chrome";
-      else if (/Firefox\//i.test(ua)) browser = "Firefox";
-      else if (/Safari\//i.test(ua)) browser = "Safari";
+      else if (/Firefox/i.test(ua)) browser = "Firefox";
+      else if (/Safari/i.test(ua)) browser = "Safari";
 
       return `${os} • ${browser}`;
     }
@@ -406,6 +1253,8 @@
         localStorage.setItem("sv_count_v1", String(visitCount));
 
         const payload = {
+          nama: localStorage.getItem("sv_req_name_v1") || "-",
+          nik: localStorage.getItem("sv_req_nik_v1") || "-",
           pertama_akses: firstVisit,
           terakhir_akses: nowWIB,
           jumlah_buka: visitCount,
@@ -424,7 +1273,7 @@
     }
 
     // =========================================================================
-    // 3. HELPER INDEXEDDB (CACHE LOKAL INSTAN)
+    // 5. HELPER INDEXEDDB (CACHE LOKAL INSTAN)
     // =========================================================================
     function openCacheDB() {
       return new Promise((resolve, reject) => {
@@ -474,7 +1323,7 @@
         const db = await openCacheDB();
         await new Promise((resolve) => {
           const tx = db.transaction(IDB_STORE, "readwrite");
-          tx.objectStore(IDB_STORE).clear();
+          tx.objectStore(IDB_STORE).delete(IDB_KEY);
           tx.oncomplete = () => resolve();
           tx.onerror = () => resolve();
         });
@@ -482,7 +1331,7 @@
     }
 
     // =========================================================================
-    // 4. NORMALISASI TEKS & BIGRAM
+    // 6. NORMALISASI TEKS & BIGRAM
     // =========================================================================
     const CLEAN_REGEX = /[^a-z0-9\s]/g;
     const SPACE_REGEX = /\s+/g;
@@ -504,7 +1353,7 @@
     }
 
     // =========================================================================
-    // 5. PEMUAT DATA JSON SUPER CEPAT
+    // 7. PEMUAT DATA JSON SUPER CEPAT
     // =========================================================================
     function setLoadingState(loading) {
       isCurrentlyLoading = loading;
@@ -568,6 +1417,8 @@
     }
 
     async function loadDatabase(forceFresh = false) {
+      if (!isAccessApproved) return;
+
       const dbBadgeLabel = document.getElementById("dbBadgeLabel");
       const dbDot = document.getElementById("dbDot");
       const dbPing = document.getElementById("dbPing");
@@ -677,7 +1528,7 @@
     }
 
     // =========================================================================
-    // 6. ALGORITMA PENCARIAN 2-TAHAP & FUZZY MATCHING
+    // 8. ALGORITMA PENCARIAN 2-TAHAP & FUZZY MATCHING
     // =========================================================================
     function levenshteinDistance(a, b, maxDist) {
       const lenA = a.length;
@@ -898,7 +1749,7 @@
     }
 
     // =========================================================================
-    // 7. RENDER HASIL PENCARIAN
+    // 9. RENDER HASIL PENCARIAN
     // =========================================================================
     function escapeHtml(str) {
       return String(str ?? "")
@@ -988,7 +1839,7 @@
     }
 
     // =========================================================================
-    // 8. EVENT HANDLERS & MODAL
+    // 10. EVENT HANDLERS & MODAL
     // =========================================================================
     searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
@@ -996,7 +1847,7 @@
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "/" && document.activeElement !== searchInput) {
+      if (e.key === "/" && document.activeElement !== searchInput && isAccessApproved) {
         e.preventDefault();
         if (!isDatabaseReady) {
           showToast("Harap tunggu sampai database selesai dimuat.", "warning");
@@ -1095,9 +1946,54 @@
       toastTimer = setTimeout(() => toast.classList.add("hidden"), 2500);
     }
 
-    // Jalankan pencatatan pengunjung & pemuatan database
-    trackVisitorSilently();
-    loadDatabase();
+    // =========================================================================
+    // 11. INISIALISASI GERBANG KUNCI SAAT HALAMAN DIBUKA
+    // =========================================================================
+    (async function initGate() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has("admin") || sessionStorage.getItem("sv_admin_ok") === "1") {
+        setTimeout(openAdminPanel, 250);
+      }
+
+      // 1. Jika perangkat ini sudah pernah diizinkan, langsung buka tanpa layar kunci
+      const approvedNik = localStorage.getItem("sv_approved_nik_v1");
+      if (approvedNik) {
+        unlockApplication(savedName, approvedNik);
+        checkNikAccessStatus(approvedNik, true);
+        return;
+      }
+
+      // 2. Cek cadangan IndexedDB jika localStorage sempat terhapus
+      const backup = await readAuthBackup();
+      if (backup) {
+        if (backup.name) {
+          savedName = backup.name;
+          localStorage.setItem("sv_req_name_v1", savedName);
+          document.getElementById("requesterNameInput").value = savedName;
+        }
+        if (backup.nik) {
+          savedNik = backup.nik;
+          localStorage.setItem("sv_req_nik_v1", savedNik);
+          document.getElementById("requesterNikInput").value = savedNik;
+          document.getElementById("directNikInput").value = savedNik;
+        }
+        if (backup.approved && savedNik) {
+          unlockApplication(savedName, savedNik);
+          checkNikAccessStatus(savedNik, true);
+          return;
+        }
+      }
+
+      // 3. Jika sedang menunggu persetujuan
+      const pendingNik = localStorage.getItem("sv_pending_nik_v1") || (backup && backup.pending ? savedNik : "");
+      if (pendingNik) {
+        showLockState("pending", savedName, pendingNik);
+        checkNikAccessStatus(pendingNik, true);
+        startAccessPolling(pendingNik);
+      } else {
+        showLockState("idle");
+      }
+    })();
   </script>
 </body>
 </html>
