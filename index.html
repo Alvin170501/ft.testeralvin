@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Firebase SDK (App & Authentication) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -550,6 +553,77 @@
   </div>
 
   <!-- ===================================================================== -->
+  <!-- MODAL LOGIN ADMIN FIREBASE AUTHENTICATION (TANPA PIN DI GITHUB)       -->
+  <!-- ===================================================================== -->
+  <div id="adminLoginModal" class="hidden fixed inset-0 z-[65] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overscroll-contain">
+    <div class="bg-slate-900 border border-white/[0.12] rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center">
+            <i class="fa-solid fa-shield-halved text-base"></i>
+          </div>
+          <div>
+            <h2 class="font-extrabold text-sm text-white">Login Admin</h2>
+            <p class="text-[11px] text-slate-400">Autentikasi Firebase M. Alvian</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onclick="closeAdminLoginModal()"
+          class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label for="adminEmailInput" class="block font-semibold text-slate-300 mb-1.5">Email Admin</label>
+          <input
+            type="email"
+            id="adminEmailInput"
+            placeholder="admin@email.com"
+            autocomplete="email"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/90 border border-white/[0.1] focus:border-indigo-500 outline-none text-white placeholder-slate-500 transition"
+          />
+        </div>
+
+        <div>
+          <label for="adminPasswordInput" class="block font-semibold text-slate-300 mb-1.5">Password Admin</label>
+          <div class="relative flex items-center">
+            <input
+              type="password"
+              id="adminPasswordInput"
+              placeholder="Masukkan password admin"
+              autocomplete="current-password"
+              onkeydown="if(event.key === 'Enter') submitAdminLogin()"
+              class="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-slate-950/90 border border-white/[0.1] focus:border-indigo-500 outline-none text-white placeholder-slate-500 transition"
+            />
+            <button
+              type="button"
+              onclick="toggleAdminPasswordVisibility()"
+              class="absolute right-2.5 text-slate-400 hover:text-slate-200 p-1"
+              title="Tampilkan / Sembunyikan Password"
+            >
+              <i id="adminPassEyeIcon" class="fa-regular fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          id="adminLoginSubmitBtn"
+          onclick="submitAdminLogin()"
+          class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition active:scale-[0.99]"
+        >
+          <i class="fa-solid fa-right-to-bracket"></i>
+          <span>Masuk ke Panel Kontrol</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
   <!-- MODAL ADMIN PENGELOLA IZIN AKSES (KHUSUS ALVIN)                       -->
   <!-- ===================================================================== -->
   <div id="adminModal" class="hidden fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overscroll-contain">
@@ -570,6 +644,14 @@
             title="Segarkan Daftar"
           >
             <i class="fa-solid fa-rotate"></i>
+          </button>
+          <button
+            onclick="logoutAdmin()"
+            class="px-2.5 h-8 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 flex items-center justify-center gap-1 text-[11px] font-semibold transition"
+            title="Keluar dari Sesi Admin"
+          >
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span>Keluar</span>
           </button>
           <button
             onclick="closeAdminPanel()"
@@ -704,10 +786,22 @@
 
   <script>
     // =========================================================================
-    // 1. KONFIGURASI FIREBASE, PIN ADMIN & SUMBER DATA JSON
+    // 1. KONFIGURASI FIREBASE AUTH & DATABASE (TANPA PASSWORD DI KODE)
     // =========================================================================
-    const FIREBASE_DB_URL = "https://trafficview-c2caf-default-rtdb.asia-southeast1.firebasedatabase.app";
-    const ADMIN_PIN = "oppocook123";
+    const firebaseConfig = {
+      apiKey: "AIzaSyC_Yuv2sw3Z7rCTv7rEf7O0CC0Qp-vRxls",
+      authDomain: "trafficview-c2caf.firebaseapp.com",
+      databaseURL: "https://trafficview-c2caf-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "trafficview-c2caf",
+      storageBucket: "trafficview-c2caf.firebasestorage.app",
+      messagingSenderId: "575121797817",
+      appId: "1:575121797817:web:80efddc3c8eaa90bd56168"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const FIREBASE_DB_URL = firebaseConfig.databaseURL;
+    const ADMIN_UID = "uPhmSoVXyJVl9FpeLvJtv1YJPu52";
 
     const DATA_FILE = "data1.json";
     const IDB_NAME = "BankSoalCache_Alvian";
@@ -724,6 +818,7 @@
       "bisa", "harus", "antara", "bawah", "atas", "kecuali", "dimaksud"
     ]);
 
+    let currentAdminUser = null;
     let isAccessApproved = false;
     let isDatabaseReady = false;
     let isCurrentlyLoading = false;
@@ -757,6 +852,43 @@
     const resultsContainer = document.getElementById("resultsContainer");
     const resultCountText = document.getElementById("resultCountText");
     const loadMoreWrap = document.getElementById("loadMoreWrap");
+
+    // Pantau status login Admin Firebase
+    auth.onAuthStateChanged((user) => {
+      const navBtn = document.getElementById("navAdminBtn");
+      if (user && user.uid === ADMIN_UID) {
+        currentAdminUser = user;
+        navBtn.classList.remove("hidden");
+        navBtn.classList.add("inline-flex");
+      } else {
+        currentAdminUser = null;
+        navBtn.classList.add("hidden");
+        navBtn.classList.remove("inline-flex");
+        if (user) {
+          auth.signOut().catch(() => {});
+        }
+      }
+    });
+
+    function waitForAuthReady() {
+      if (typeof auth.authStateReady === "function") {
+        return auth.authStateReady();
+      }
+      return new Promise((resolve) => {
+        const unsub = auth.onAuthStateChanged(() => {
+          unsub();
+          resolve();
+        });
+      });
+    }
+
+    async function getAdminAuthQuery() {
+      if (!currentAdminUser || currentAdminUser.uid !== ADMIN_UID) {
+        throw new Error("Sesi admin tidak aktif");
+      }
+      const token = await currentAdminUser.getIdToken();
+      return `auth=${encodeURIComponent(token)}`;
+    }
 
     // =========================================================================
     // 2. IDENTITAS PERANGKAT UNIK (1 NIK = 1 HP)
@@ -986,13 +1118,13 @@
       return { appData, reqData, readDenied: appRes.status === 401 || reqRes.status === 401 };
     }
 
-    async function claimDeviceBinding(nik, nama, myDeviceId) {
+    async function claimDeviceBinding(nik, nama, myDeviceId, hasReqRecord = true) {
       const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
       const devLabel = getFullDeviceLabel();
       const nowWIB = formatWaktuWIB();
       const ts = Date.now();
 
-      await Promise.all([
+      const writes = [
         fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -1005,25 +1137,32 @@
             bound_time: nowWIB,
             timestamp: ts
           })
-        }),
-        fetch(`${cleanUrl}/access_requests/${nik}.json`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            nik,
-            nama,
-            status: "approved",
-            device_id: myDeviceId,
-            bound_device_id: myDeviceId,
-            bound_device_name: devLabel,
-            perangkat: devLabel,
-            waktu: nowWIB,
-            timestamp: ts
-          })
         })
-      ]);
+      ];
 
-      // Verifikasi ulang singkat untuk mencegah 2 HP mengklaim di milidetik yang sama
+      if (hasReqRecord) {
+        writes.push(
+          fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nik,
+              nama,
+              status: "approved",
+              device_id: myDeviceId,
+              bound_device_id: myDeviceId,
+              bound_device_name: devLabel,
+              perangkat: devLabel,
+              waktu: nowWIB,
+              timestamp: ts
+            })
+          })
+        );
+      }
+
+      await Promise.all(writes);
+
+      // Verifikasi ulang singkat untuk memastikan HP ini yang memegang kunci
       await new Promise(r => setTimeout(r, 320));
       const verify = await fetchNikRecord(nik);
       const winnerId =
@@ -1094,7 +1233,6 @@
         if (isApproved) {
           const finalName = nama || (appData && appData.nama) || (reqData && reqData.nama) || "Pengguna";
 
-          // Jika sudah terikat ke HP lain, langsung tolak!
           if (boundDeviceId && boundDeviceId !== myDeviceId) {
             await saveAuthBackup(false, finalName, nik, false);
             showLockState("device_locked", finalName, nik, boundDeviceName);
@@ -1102,9 +1240,8 @@
             return;
           }
 
-          // Jika belum terikat HP mana pun, ikat ke HP ini sekarang
           if (!boundDeviceId) {
-            const claim = await claimDeviceBinding(nik, finalName, myDeviceId);
+            const claim = await claimDeviceBinding(nik, finalName, myDeviceId, Boolean(reqData));
             if (!claim.ok) {
               showLockState("device_locked", finalName, nik, claim.winnerName);
               showToast("NIK sudah diklaim oleh perangkat lain.", "warning");
@@ -1117,7 +1254,6 @@
           return;
         }
 
-        // Jika sudah ada permintaan pending dari HP lain untuk NIK yang sama
         const reqDeviceId = (reqData && reqData.device_id) || "";
         if (reqData && reqData.status === "pending" && reqDeviceId && reqDeviceId !== myDeviceId) {
           showLockState("device_locked", nama, nik, reqData.perangkat || "perangkat lain");
@@ -1175,7 +1311,7 @@
         const myDeviceId = await getOrCreateDeviceId();
         const { appData, reqData, readDenied } = await fetchNikRecord(nik);
         if (readDenied) {
-          showToast("Rules Firebase masih menolak baca data (401).", "warning");
+          showToast("Rules Firebase menolak baca data (401).", "warning");
           return;
         }
 
@@ -1202,7 +1338,6 @@
           "perangkat lain";
 
         if (status === "approved") {
-          // Cek apakah sudah dikunci ke HP lain
           if (boundDeviceId && boundDeviceId !== myDeviceId) {
             await saveAuthBackup(false, nama, nik, false);
             showLockState("device_locked", nama, nik, boundDeviceName);
@@ -1210,9 +1345,8 @@
             return;
           }
 
-          // Jika NIK baru didaftarkan admin (belum terikat HP), otomatis ikat ke HP pertama ini
           if (!boundDeviceId) {
-            const claim = await claimDeviceBinding(nik, nama, myDeviceId);
+            const claim = await claimDeviceBinding(nik, nama, myDeviceId, Boolean(reqData));
             if (!claim.ok) {
               showLockState("device_locked", nama, nik, claim.winnerName);
               showToast("NIK sudah diklaim oleh perangkat lain.", "warning");
@@ -1280,7 +1414,6 @@
           "perangkat lain";
 
         if (status === "approved") {
-          // Jika terikat ke HP lain, blokir dan kunci kembali jika sedang terbuka
           if (boundDeviceId && boundDeviceId !== myDeviceId) {
             if (isAccessApproved) {
               lockApplicationAgain("device_locked", nik, boundDeviceName);
@@ -1292,9 +1425,8 @@
             return;
           }
 
-          // Jika admin menekan Reset HP saat pengguna sedang menunggu/login, klaim ulang
           if (!boundDeviceId) {
-            const claim = await claimDeviceBinding(nik, nama, myDeviceId);
+            const claim = await claimDeviceBinding(nik, nama, myDeviceId, Boolean(reqData));
             if (!claim.ok) {
               lockApplicationAgain("device_locked", nik, claim.winnerName);
               return;
@@ -1334,7 +1466,7 @@
     }
 
     // =========================================================================
-    // 4. PANEL ADMIN RAHASIA (KETUK ICON 5X ATAU ?admin)
+    // 4. PANEL ADMIN RAHASIA (FIREBASE AUTH EMAIL & PASSWORD)
     // =========================================================================
     function registerSecretTap() {
       secretTapCount++;
@@ -1349,24 +1481,88 @@
       }, 3000);
     }
 
-    function openAdminPanel() {
-      if (sessionStorage.getItem("sv_admin_ok") === "1") {
+    async function openAdminPanel() {
+      await waitForAuthReady();
+      if (currentAdminUser && currentAdminUser.uid === ADMIN_UID) {
         document.getElementById("adminModal").classList.remove("hidden");
         loadAdminRequests();
         return;
       }
 
-      const pin = prompt("Masukkan PIN Admin M. Alvian:");
-      if (pin === ADMIN_PIN) {
-        sessionStorage.setItem("sv_admin_ok", "1");
-        const navBtn = document.getElementById("navAdminBtn");
-        navBtn.classList.remove("hidden");
-        navBtn.classList.add("inline-flex");
+      document.getElementById("adminLoginModal").classList.remove("hidden");
+      setTimeout(() => {
+        document.getElementById("adminEmailInput").focus();
+      }, 100);
+    }
+
+    function closeAdminLoginModal() {
+      document.getElementById("adminLoginModal").classList.add("hidden");
+    }
+
+    function toggleAdminPasswordVisibility() {
+      const inp = document.getElementById("adminPasswordInput");
+      const icon = document.getElementById("adminPassEyeIcon");
+      if (inp.type === "password") {
+        inp.type = "text";
+        icon.className = "fa-regular fa-eye-slash";
+      } else {
+        inp.type = "password";
+        icon.className = "fa-regular fa-eye";
+      }
+    }
+
+    async function submitAdminLogin() {
+      const email = document.getElementById("adminEmailInput").value.trim();
+      const password = document.getElementById("adminPasswordInput").value;
+
+      if (!email || !password) {
+        showToast("Isi email dan password admin.", "warning");
+        return;
+      }
+
+      const btn = document.getElementById("adminLoginSubmitBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i><span>Memverifikasi...</span>`;
+
+      try {
+        const cred = await auth.signInWithEmailAndPassword(email, password);
+        if (!cred.user || cred.user.uid !== ADMIN_UID) {
+          await auth.signOut();
+          showToast("Akun ini bukan admin yang berwenang.", "warning");
+          return;
+        }
+
+        currentAdminUser = cred.user;
+        document.getElementById("adminPasswordInput").value = "";
+        closeAdminLoginModal();
         document.getElementById("adminModal").classList.remove("hidden");
         loadAdminRequests();
-      } else if (pin !== null) {
-        showToast("PIN Admin salah.", "warning");
+        showToast("Login Admin berhasil.", "success");
+      } catch (err) {
+        let msg = "Gagal login admin.";
+        if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
+          msg = "Email atau password admin salah.";
+        } else if (err.code === "auth/invalid-email") {
+          msg = "Format email tidak valid.";
+        } else if (err.code === "auth/too-many-requests") {
+          msg = "Terlalu banyak percobaan. Coba beberapa saat lagi.";
+        } else if (err.code === "auth/unauthorized-domain") {
+          msg = "Domain belum ditambahkan di Authorized Domains Firebase.";
+        }
+        showToast(msg, "warning");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i><span>Masuk ke Panel Kontrol</span>`;
       }
+    }
+
+    async function logoutAdmin() {
+      try {
+        await auth.signOut();
+        currentAdminUser = null;
+        closeAdminPanel();
+        showToast("Sesi admin telah keluar.", "success");
+      } catch {}
     }
 
     function closeAdminPanel() {
@@ -1394,8 +1590,9 @@
       const ts = Date.now();
 
       try {
+        const authQuery = await getAdminAuthQuery();
         const [r1, r2] = await Promise.all([
-          fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
+          fetch(`${cleanUrl}/approved_niks/${nik}.json?${authQuery}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1408,7 +1605,7 @@
               timestamp: ts
             })
           }),
-          fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+          fetch(`${cleanUrl}/access_requests/${nik}.json?${authQuery}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1444,14 +1641,15 @@
       const targetDeviceName = userObj.bound_device_name || userObj.perangkat || "";
 
       try {
+        const authQuery = await getAdminAuthQuery();
         if (newStatus === "delete") {
           await Promise.all([
-            fetch(`${cleanUrl}/access_requests/${nik}.json`, { method: "DELETE" }),
-            fetch(`${cleanUrl}/approved_niks/${nik}.json`, { method: "DELETE" })
+            fetch(`${cleanUrl}/access_requests/${nik}.json?${authQuery}`, { method: "DELETE" }),
+            fetch(`${cleanUrl}/approved_niks/${nik}.json?${authQuery}`, { method: "DELETE" })
           ]);
         } else {
           await Promise.all([
-            fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+            fetch(`${cleanUrl}/access_requests/${nik}.json?${authQuery}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -1462,7 +1660,7 @@
                 bound_device_name: targetDeviceName
               })
             }),
-            fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
+            fetch(`${cleanUrl}/approved_niks/${nik}.json?${authQuery}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -1502,8 +1700,9 @@
       const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
 
       try {
+        const authQuery = await getAdminAuthQuery();
         await Promise.all([
-          fetch(`${cleanUrl}/access_requests/${nik}.json`, {
+          fetch(`${cleanUrl}/access_requests/${nik}.json?${authQuery}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1513,7 +1712,7 @@
               perangkat: "Reset HP — Menunggu Login HP Baru"
             })
           }),
-          fetch(`${cleanUrl}/approved_niks/${nik}.json`, {
+          fetch(`${cleanUrl}/approved_niks/${nik}.json?${authQuery}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1544,12 +1743,13 @@
       const ts = Date.now();
 
       try {
+        const authQuery = await getAdminAuthQuery();
         await Promise.all(
           pendingList.flatMap(u => {
             const devId = u.bound_device_id || u.device_id || "";
             const devName = u.bound_device_name || u.perangkat || "";
             return [
-              fetch(`${cleanUrl}/access_requests/${u.nik}.json`, {
+              fetch(`${cleanUrl}/access_requests/${u.nik}.json?${authQuery}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1558,7 +1758,7 @@
                   bound_device_name: devName
                 })
               }),
-              fetch(`${cleanUrl}/approved_niks/${u.nik}.json`, {
+              fetch(`${cleanUrl}/approved_niks/${u.nik}.json?${authQuery}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1738,9 +1938,10 @@
       const listEl = document.getElementById("adminRequestList");
       const cleanUrl = FIREBASE_DB_URL.replace(/\/+$/, "");
       try {
+        const authQuery = await getAdminAuthQuery();
         const [reqRes, appRes] = await Promise.all([
-          fetch(`${cleanUrl}/access_requests.json?t=${Date.now()}`, { cache: "no-store" }),
-          fetch(`${cleanUrl}/approved_niks.json?t=${Date.now()}`, { cache: "no-store" })
+          fetch(`${cleanUrl}/access_requests.json?t=${Date.now()}&${authQuery}`, { cache: "no-store" }),
+          fetch(`${cleanUrl}/approved_niks.json?t=${Date.now()}&${authQuery}`, { cache: "no-store" })
         ]);
 
         if (reqRes.status === 401 || appRes.status === 401) {
@@ -1748,10 +1949,10 @@
             <div class="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2 text-rose-200">
               <div class="font-bold text-rose-300 flex items-center gap-2">
                 <i class="fa-solid fa-shield-exclamation"></i>
-                <span>Rules Firebase Masih Menolak Baca Data (401)</span>
+                <span>Akses Admin Ditolak Server (401)</span>
               </div>
               <p class="text-[11px] leading-relaxed text-rose-200/85">
-                Buka <strong>Firebase Console &rarr; Realtime Database &rarr; Rules</strong> pada proyek <code class="font-mono bg-black/30 px-1 rounded">trafficview-c2caf</code>, lalu izinkan <code class="font-mono bg-black/30 px-1 rounded">.read: true</code> dan <code class="font-mono bg-black/30 px-1 rounded">.write: true</code> untuk <code class="font-mono bg-black/30 px-1 rounded">access_requests</code> dan <code class="font-mono bg-black/30 px-1 rounded">approved_niks</code>.
+                Pastikan UID <code class="font-mono bg-black/30 px-1 rounded">${ADMIN_UID}</code> sudah terpasang pada Security Rules Realtime Database dan sesi login admin masih aktif.
               </p>
             </div>
           `;
@@ -2576,18 +2777,20 @@
     // =========================================================================
     (async function initGate() {
       await getOrCreateDeviceId();
+      await waitForAuthReady();
 
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has("admin") || sessionStorage.getItem("sv_admin_ok") === "1") {
-        setTimeout(openAdminPanel, 250);
+      if (urlParams.has("admin")) {
+        setTimeout(openAdminPanel, 200);
       }
 
       const approvedNik = localStorage.getItem("sv_approved_nik_v1");
       if (approvedNik) {
-        if (approvedNik === "ADMIN") {
+        if (approvedNik === "ADMIN" && currentAdminUser && currentAdminUser.uid === ADMIN_UID) {
           unlockApplication(savedName || "M. Alvian (Admin)", "ADMIN");
+        } else if (approvedNik === "ADMIN") {
+          lockApplicationAgain("idle");
         } else {
-          // Verifikasi ke Firebase agar tidak bisa dipalsukan di HP ke-2
           await checkNikAccessStatus(approvedNik, true);
         }
         return;
@@ -2607,8 +2810,10 @@
           document.getElementById("directNikInput").value = savedNik;
         }
         if (backup.approved && savedNik) {
-          if (savedNik === "ADMIN") {
+          if (savedNik === "ADMIN" && currentAdminUser && currentAdminUser.uid === ADMIN_UID) {
             unlockApplication(savedName, "ADMIN");
+          } else if (savedNik === "ADMIN") {
+            lockApplicationAgain("idle");
           } else {
             await checkNikAccessStatus(savedNik, true);
           }
